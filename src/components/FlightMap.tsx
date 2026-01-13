@@ -6,7 +6,7 @@ import { getBoundsFromGeoJSON, formatArea } from '@/utils/flightPlanUtils';
 
 interface FlightMapProps {
   geojson: FlightPlanGeoJSON | null;
-  selectedPlanId: string | null;
+  highlightedPlanIds: Set<string>;
   onZoneClick: (planId: string) => void;
   onZoneHover: (planId: string | null) => void;
 }
@@ -21,11 +21,17 @@ const ZONE_COLORS = [
   '#06B6D4', // cyan
 ];
 
-export function FlightMap({ geojson, selectedPlanId, onZoneClick, onZoneHover }: FlightMapProps) {
+export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHover }: FlightMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const popup = useRef<maplibregl.Popup | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const highlightedIdsRef = useRef<Set<string>>(highlightedPlanIds);
+
+  // Keep ref in sync
+  useEffect(() => {
+    highlightedIdsRef.current = highlightedPlanIds;
+  }, [highlightedPlanIds]);
 
   // Initialize map
   useEffect(() => {
@@ -134,12 +140,7 @@ export function FlightMap({ geojson, selectedPlanId, onZoneClick, onZoneHover }:
       source: 'flight-zones',
       paint: {
         'fill-color': ['get', 'color'],
-        'fill-opacity': [
-          'case',
-          ['==', ['get', 'operationPlanId'], selectedPlanId || ''],
-          0.5,
-          0.25,
-        ],
+        'fill-opacity': 0.25,
       },
     });
 
@@ -150,12 +151,7 @@ export function FlightMap({ geojson, selectedPlanId, onZoneClick, onZoneHover }:
       source: 'flight-zones',
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': [
-          'case',
-          ['==', ['get', 'operationPlanId'], selectedPlanId || ''],
-          3,
-          1.5,
-        ],
+        'line-width': 1.5,
         'line-opacity': 0.9,
       },
     });
@@ -217,34 +213,35 @@ export function FlightMap({ geojson, selectedPlanId, onZoneClick, onZoneHover }:
       onZoneHover(null);
     });
 
-  }, [geojson, mapLoaded, selectedPlanId, onZoneClick, onZoneHover]);
+  }, [geojson, mapLoaded, onZoneClick, onZoneHover]);
 
-  // Update selection styling
-  const updateSelection = useCallback(() => {
+  // Update highlight styling
+  const updateHighlighting = useCallback(() => {
     if (!map.current || !mapLoaded) return;
 
+    const highlightedArray = Array.from(highlightedPlanIds);
+    const hasHighlights = highlightedArray.length > 0;
+
     if (map.current.getLayer('zones-fill')) {
-      map.current.setPaintProperty('zones-fill', 'fill-opacity', [
-        'case',
-        ['==', ['get', 'operationPlanId'], selectedPlanId || ''],
-        0.5,
-        0.25,
-      ]);
+      map.current.setPaintProperty('zones-fill', 'fill-opacity', 
+        hasHighlights
+          ? ['case', ['in', ['get', 'operationPlanId'], ['literal', highlightedArray]], 0.5, 0.15]
+          : 0.25
+      );
     }
 
     if (map.current.getLayer('zones-outline')) {
-      map.current.setPaintProperty('zones-outline', 'line-width', [
-        'case',
-        ['==', ['get', 'operationPlanId'], selectedPlanId || ''],
-        3,
-        1.5,
-      ]);
+      map.current.setPaintProperty('zones-outline', 'line-width',
+        hasHighlights
+          ? ['case', ['in', ['get', 'operationPlanId'], ['literal', highlightedArray]], 3, 1]
+          : 1.5
+      );
     }
-  }, [selectedPlanId, mapLoaded]);
+  }, [highlightedPlanIds, mapLoaded]);
 
   useEffect(() => {
-    updateSelection();
-  }, [updateSelection]);
+    updateHighlighting();
+  }, [updateHighlighting]);
 
   return (
     <div ref={mapContainer} className="w-full h-full" />
