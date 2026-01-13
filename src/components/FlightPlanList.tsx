@@ -2,6 +2,8 @@ import { Plane, Clock, Layers, MapPin, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ParsedFlightPlan } from '@/types/flightPlan';
 import { formatArea, formatDateTimeShort, getOperationStatus } from '@/utils/flightPlanUtils';
+import { TimeframeFilter } from '@/components/TimeframeFilter';
+import { DateRange } from 'react-day-picker';
 
 interface FlightPlanListProps {
   plans: ParsedFlightPlan[];
@@ -10,6 +12,7 @@ interface FlightPlanListProps {
   hoveredPlanId: string | null;
   onActivatePlan: (planId: string) => void;
   onToggleSelect: (planId: string) => void;
+  onTimeframeChange: (dateRange: DateRange | undefined) => void;
 }
 
 export function FlightPlanList({ 
@@ -18,7 +21,8 @@ export function FlightPlanList({
   selectedPlanIds, 
   hoveredPlanId,
   onActivatePlan, 
-  onToggleSelect 
+  onToggleSelect,
+  onTimeframeChange
 }: FlightPlanListProps) {
   if (plans.length === 0) {
     return (
@@ -38,6 +42,7 @@ export function FlightPlanList({
 
   return (
     <div className="space-y-3">
+      <TimeframeFilter onTimeframeChange={onTimeframeChange} />
       {plans.map((plan) => {
         const status = getOperationStatus(plan.startTime, plan.endTime);
         const isActive = activePlanId === plan.operation_plan_id;

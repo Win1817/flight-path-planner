@@ -31,9 +31,11 @@ export interface OperationVolume {
 export interface FlightPlan {
   operation_plan_id: string;
   flight_plan_id?: string;
+  operator?: string;
   title?: string;
   description?: string;
   state?: string;
+  closureReason?: string; // Added based on user request
   priority?: number;
   submit_time?: string;
   update_time?: string;
@@ -61,8 +63,11 @@ export interface ParsedFlightPlan extends FlightPlan {
 export interface FlightPlanProperties {
   flightPlanId: string;
   operationPlanId: string;
+  operator: string | undefined;
   title: string;
   description: string;
+  state: string | undefined;
+  closureReason: string | undefined;
   volumeIndex: number;
   minAltitude: number | null;
   maxAltitude: number | null;

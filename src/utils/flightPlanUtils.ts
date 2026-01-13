@@ -16,6 +16,8 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   const description = (raw.description || publicInfo?.description || flightDetails?.flightComment || '') as string;
   
   const state = raw.state as string | undefined;
+  const closureReason = raw.closureReason as string | undefined;
+  const operator = raw.operator as string | undefined;
   const submitTime = (raw.submitTime || raw.submit_time) as string | undefined;
   const updateTime = (raw.updateTime || raw.update_time) as string | undefined;
   
@@ -38,9 +40,11 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   return {
     operation_plan_id: operationPlanId,
     flight_plan_id: flightPlanId,
+    operator,
     title,
     description,
     state,
+    closureReason,
     submit_time: submitTime,
     update_time: updateTime,
     operation_volumes: operationVolumes,
@@ -198,8 +202,11 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
       const properties: FlightPlanProperties = {
         flightPlanId: plan.flight_plan_id || plan.operation_plan_id,
         operationPlanId: plan.operation_plan_id,
+        operator: plan.operator,
         title: plan.title || 'Untitled Operation',
         description: plan.description || '',
+        state: plan.state,
+        closureReason: plan.closureReason,
         volumeIndex: index,
         minAltitude: volume.min_altitude?.altitude_value ?? null,
         maxAltitude: volume.max_altitude?.altitude_value ?? null,
@@ -272,6 +279,8 @@ export function generateSampleFlightPlan(): FlightPlan {
     title: 'Sample Drone Survey Mission',
     description: 'Aerial photography and mapping operation for agricultural land survey.',
     state: 'ACCEPTED',
+    closureReason: 'NOMINAL',
+    operator: 'Test-Operator-123',
     submit_time: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
     update_time: now.toISOString(),
     operation_volumes: [

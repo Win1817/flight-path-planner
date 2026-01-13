@@ -1,4 +1,4 @@
-import { X, Clock, Mountain, Maximize2, Calendar, FileText, Hash } from 'lucide-react';
+import { X, Clock, Mountain, Maximize2, Calendar, FileText, Hash, Info, User } from 'lucide-react';
 import type { ParsedFlightPlan } from '@/types/flightPlan';
 import { formatArea, formatDateTime, getOperationStatus } from '@/utils/flightPlanUtils';
 import { cn } from '@/lib/utils';
@@ -55,6 +55,52 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
             </p>
           )}
         </div>
+
+        {/* Status Information */}
+        {(plan.state || plan.closureReason) && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+              <Info className="w-3.5 h-3.5 text-primary" />
+              Status
+            </h4>
+            <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-3">
+              {plan.state && (
+                <div>
+                  <p className="data-label">State</p>
+                  <p className="text-md font-semibold text-foreground">
+                    {plan.state}
+                  </p>
+                </div>
+              )}
+              {plan.closureReason && (
+                <div>
+                  <p className="data-label">Closure Reason</p>
+                  <p className="text-md font-semibold text-foreground">
+                    {plan.closureReason}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Operator Information */}
+        {plan.operator && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+              <User className="w-3.5 h-3.5 text-primary" />
+              Operator
+            </h4>
+            <div className="grid grid-cols-1 gap-3 bg-muted/30 rounded-lg p-3">
+              <div>
+                <p className="data-label">Operator ID</p>
+                <p className="font-mono text-sm text-foreground break-all">
+                  {plan.operator}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* IDs */}
         <div className="space-y-3">
