@@ -1,0 +1,165 @@
+[
+  {
+    "operation_plan_id": "OP-2024-ABC123XYZ",
+    "flight_plan_id": "FP-001",
+    "title": "Agricultural Survey Mission",
+    "description": "Aerial photography and multispectral imaging for crop health assessment over farmland parcels.",
+    "state": "ACCEPTED",
+    "priority": 1,
+    "submit_time": "2024-01-15T08:00:00Z",
+    "update_time": "2024-01-15T09:30:00Z",
+    "operation_volumes": [
+      {
+        "id": "vol-001",
+        "ordinal": 0,
+        "volume_type": "TBOV",
+        "effective_time_begin": "2026-01-13T10:00:00Z",
+        "effective_time_end": "2026-01-13T12:00:00Z",
+        "min_altitude": {
+          "altitude_value": 50,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "max_altitude": {
+          "altitude_value": 400,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "operation_geography": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-122.4194, 37.7749],
+              [-122.4094, 37.7749],
+              [-122.4094, 37.7849],
+              [-122.4194, 37.7849],
+              [-122.4194, 37.7749]
+            ]
+          ]
+        }
+      },
+      {
+        "id": "vol-002",
+        "ordinal": 1,
+        "volume_type": "TBOV",
+        "effective_time_begin": "2026-01-13T12:30:00Z",
+        "effective_time_end": "2026-01-13T14:00:00Z",
+        "min_altitude": {
+          "altitude_value": 100,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "max_altitude": {
+          "altitude_value": 350,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "operation_geography": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-122.4094, 37.7849],
+              [-122.3994, 37.7849],
+              [-122.3994, 37.7949],
+              [-122.4094, 37.7949],
+              [-122.4094, 37.7849]
+            ]
+          ]
+        }
+      }
+    ],
+    "contact": {
+      "name": "John Pilot",
+      "phone": "+1-555-0123",
+      "email": "john.pilot@agrisurvey.com"
+    }
+  },
+  {
+    "operation_plan_id": "OP-2024-DEF456UVW",
+    "flight_plan_id": "FP-002",
+    "title": "Infrastructure Inspection",
+    "description": "Power line and transmission tower inspection using thermal imaging sensors.",
+    "state": "ACTIVATED",
+    "priority": 2,
+    "submit_time": "2024-01-14T14:00:00Z",
+    "update_time": "2024-01-15T07:00:00Z",
+    "operation_volumes": [
+      {
+        "id": "vol-003",
+        "ordinal": 0,
+        "volume_type": "TBOV",
+        "effective_time_begin": "2026-01-13T09:00:00Z",
+        "effective_time_end": "2026-01-13T17:00:00Z",
+        "min_altitude": {
+          "altitude_value": 75,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "max_altitude": {
+          "altitude_value": 500,
+          "units_of_measure": "FT",
+          "vertical_reference": "AGL"
+        },
+        "operation_geography": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-122.4300, 37.7600],
+              [-122.4200, 37.7580],
+              [-122.4100, 37.7620],
+              [-122.4050, 37.7700],
+              [-122.4150, 37.7750],
+              [-122.4300, 37.7700],
+              [-122.4300, 37.7600]
+            ]
+          ]
+        }
+      }
+    ],
+    "contact": {
+      "name": "Sarah Engineer",
+      "email": "sarah.eng@utilityinspect.com"
+    }
+  },
+  {
+    "operation_plan_id": "OP-2024-GHI789RST",
+    "flight_plan_id": "FP-003",
+    "title": "Emergency Response Support",
+    "description": "Search and rescue support operation with real-time video feed capabilities.",
+    "state": "PENDING",
+    "priority": 0,
+    "submit_time": "2024-01-15T06:00:00Z",
+    "operation_volumes": [
+      {
+        "id": "vol-004",
+        "ordinal": 0,
+        "volume_type": "TBOV",
+        "effective_time_begin": "2026-01-14T06:00:00Z",
+        "effective_time_end": "2026-01-14T18:00:00Z",
+        "min_altitude": {
+          "altitude_value": 100,
+          "units_of_measure": "M",
+          "vertical_reference": "AGL"
+        },
+        "max_altitude": {
+          "altitude_value": 150,
+          "units_of_measure": "M",
+          "vertical_reference": "AGL"
+        },
+        "operation_geography": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-122.4500, 37.7900],
+              [-122.4350, 37.7850],
+              [-122.4300, 37.7950],
+              [-122.4400, 37.8000],
+              [-122.4550, 37.7980],
+              [-122.4500, 37.7900]
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]
