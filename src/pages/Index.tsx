@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Plane, AlertCircle } from 'lucide-react';
+import { Plane, AlertCircle, Download, CheckSquare, Square } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
 import { FlightPlanList } from '@/components/FlightPlanList';
 import { FlightDetails } from '@/components/FlightDetails';
 import { FlightMap } from '@/components/FlightMap';
+import { Button } from '@/components/ui/button';
 import { 
   parseFlightPlans, 
   processFlightPlan, 
@@ -14,7 +15,8 @@ import type { ParsedFlightPlan, FlightPlanGeoJSON } from '@/types/flightPlan';
 const Index = () => {
   const [plans, setPlans] = useState<ParsedFlightPlan[]>([]);
   const [geojson, setGeojson] = useState<FlightPlanGeoJSON | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
 
@@ -25,11 +27,8 @@ const Index = () => {
       const processedPlans = rawPlans.map(processFlightPlan);
       setPlans(processedPlans);
       setGeojson(flightPlansToGeoJSON(processedPlans));
-      
-      // Auto-select first plan
-      if (processedPlans.length > 0) {
-        setSelectedPlanId(processedPlans[0].operation_plan_id);
-      }
+      setSelectedPlanIds(new Set());
+      setActivePlanId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to parse flight plans');
       setPlans([]);
@@ -41,7 +40,53 @@ const Index = () => {
     setError(errorMessage);
   }, []);
 
-  const selectedPlan = plans.find(p => p.operation_plan_id === selectedPlanId);
+  const handleToggleSelect = useCallback((planId: string) => {
+    setSelectedPlanIds(prev => {
+      const next = new Set(prev);
+      if (next.has(planId)) {
+        next.delete(planId);
+      } else {
+        next.add(planId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedPlanIds.size === plans.length) {
+      setSelectedPlanIds(new Set());
+    } else {
+      setSelectedPlanIds(new Set(plans.map(p => p.operation_plan_id)));
+    }
+  }, [plans, selectedPlanIds.size]);
+
+  const handleExport = useCallback(() => {
+    if (!geojson || selectedPlanIds.size === 0) return;
+
+    const filteredFeatures = geojson.features.filter(f => 
+      selectedPlanIds.has(f.properties.operationPlanId)
+    );
+
+    const exportData: FlightPlanGeoJSON = {
+      type: 'FeatureCollection',
+      features: filteredFeatures,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `flight-plans-${new Date().toISOString().slice(0, 10)}.geojson`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [geojson, selectedPlanIds]);
+
+  const activePlan = plans.find(p => p.operation_plan_id === activePlanId);
+  const highlightedPlanIds = selectedPlanIds.size > 0 
+    ? selectedPlanIds 
+    : new Set(hoveredPlanId ? [hoveredPlanId] : []);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -76,24 +121,51 @@ const Index = () => {
               Flight Plans
             </h2>
             {plans.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {plans.length} plan{plans.length !== 1 ? 's' : ''}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSelectAll}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  {selectedPlanIds.size === plans.length ? (
+                    <CheckSquare className="w-3.5 h-3.5" />
+                  ) : (
+                    <Square className="w-3.5 h-3.5" />
+                  )}
+                  {selectedPlanIds.size === plans.length ? 'Deselect' : 'Select'} all
+                </button>
+              </div>
             )}
           </div>
           <FlightPlanList
             plans={plans}
-            selectedPlanId={selectedPlanId || hoveredPlanId}
-            onSelectPlan={setSelectedPlanId}
+            activePlanId={activePlanId}
+            selectedPlanIds={selectedPlanIds}
+            hoveredPlanId={hoveredPlanId}
+            onActivatePlan={setActivePlanId}
+            onToggleSelect={handleToggleSelect}
           />
         </div>
 
+        {/* Export Button */}
+        {selectedPlanIds.size > 0 && (
+          <div className="border-t border-sidebar-border p-4">
+            <Button 
+              onClick={handleExport} 
+              className="w-full gap-2"
+              variant="default"
+            >
+              <Download className="w-4 h-4" />
+              Export {selectedPlanIds.size} Plan{selectedPlanIds.size !== 1 ? 's' : ''} as GeoJSON
+            </Button>
+          </div>
+        )}
+
         {/* Details Panel */}
-        {selectedPlan && (
+        {activePlan && (
           <div className="border-t border-sidebar-border p-4">
             <FlightDetails
-              plan={selectedPlan}
-              onClose={() => setSelectedPlanId(null)}
+              plan={activePlan}
+              onClose={() => setActivePlanId(null)}
             />
           </div>
         )}
@@ -103,8 +175,8 @@ const Index = () => {
       <div className="flex-1 relative">
         <FlightMap
           geojson={geojson}
-          selectedPlanId={selectedPlanId || hoveredPlanId}
-          onZoneClick={setSelectedPlanId}
+          highlightedPlanIds={highlightedPlanIds}
+          onZoneClick={setActivePlanId}
           onZoneHover={setHoveredPlanId}
         />
 
