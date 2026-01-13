@@ -85,8 +85,11 @@ export function FlightMap({ geojson, selectedPlanId, onZoneClick, onZoneHover }:
   useEffect(() => {
     if (!map.current || !mapLoaded || !geojson) return;
 
+    const style = map.current.getStyle();
+    if (!style) return;
+
     // Remove existing layers and sources
-    const existingLayers = map.current.getStyle().layers || [];
+    const existingLayers = style.layers || [];
     existingLayers.forEach(layer => {
       if (layer.id.startsWith('zones-')) {
         map.current?.removeLayer(layer.id);
