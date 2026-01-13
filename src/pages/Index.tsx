@@ -25,8 +25,18 @@ const Index = () => {
   const handleFileLoad = useCallback((data: unknown) => {
     try {
       setError(null);
-      const rawPlans = parseFlightPlans(data);
-      const processedPlans = rawPlans.map(processFlightPlan);
+      const parsedData = parseFlightPlans(data);
+      
+      let plansArray: any[];
+      if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData) && Array.isArray(parsedData.data)) {
+          plansArray = parsedData.data;
+      } else if (Array.isArray(parsedData)) {
+          plansArray = parsedData;
+      } else {
+          throw new Error('Invalid JSON structure: Expected an array of flight plans or a supported export format.');
+      }
+
+      const processedPlans = plansArray.map(processFlightPlan);
       setPlans(processedPlans);
       setSelectedPlanIds(new Set());
       setActivePlanId(null);
@@ -55,7 +65,6 @@ const Index = () => {
       return plans;
     }
     const from = timeframe.from.getTime();
-    // Set the end of the day for the 'to' date
     const to = timeframe.to ? new Date(timeframe.to).setHours(23, 59, 59, 999) : from;
 
     return plans.filter(plan => {
@@ -97,7 +106,12 @@ const Index = () => {
 
     const selectedPlansToExport = filteredPlans.filter(p => visibleSelectedPlanIds.has(p.operation_plan_id));
     
-    const blob = new Blob([JSON.stringify(selectedPlansToExport, null, 2)], { type: 'application/json' });
+    const exportObject = {
+      "comment": `Total number of flight plans: ${selectedPlansToExport.length}`,
+      "data": selectedPlansToExport
+    };
+
+    const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -222,17 +236,15 @@ const Index = () => {
 
         {!geojson && plans.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center p-8 rounded-xl glass-panel max-w-md">
-              <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
-                <Plane className="w-10 h-10 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                No Flight Plans Loaded
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Upload a JSON file containing flight plan data to visualize operation zones on the map.
-              </p>
+            <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
+              <Plane className="w-10 h-10 text-primary" />
             </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">
+              No Flight Plans Loaded
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Upload a JSON file containing flight plan data to visualize operation zones on the map.
+            </p>
           </div>
         )}
       </div>
