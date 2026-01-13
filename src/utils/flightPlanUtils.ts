@@ -1,28 +1,130 @@
 import * as turf from '@turf/turf';
 import type { FlightPlan, ParsedFlightPlan, FlightPlanGeoJSON, FlightPlanFeature, FlightPlanProperties, OperationVolume } from '@/types/flightPlan';
 
+// Normalize different API formats to our internal format
+function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
+  // Handle alternative field names (camelCase vs snake_case)
+  const operationPlanId = (raw.operationPlanId || raw.operation_plan_id || '') as string;
+  const flightPlanId = (raw.flightPlanId || raw.flight_plan_id) as string | undefined;
+  
+  // Title can come from different places
+  const publicInfo = raw.publicInfo as Record<string, unknown> | undefined;
+  const title = (raw.title || publicInfo?.title || '') as string;
+  
+  // Description from various sources
+  const flightDetails = raw.flightDetails as Record<string, unknown> | undefined;
+  const description = (raw.description || publicInfo?.description || flightDetails?.flightComment || '') as string;
+  
+  const state = raw.state as string | undefined;
+  const submitTime = (raw.submitTime || raw.submit_time) as string | undefined;
+  const updateTime = (raw.updateTime || raw.update_time) as string | undefined;
+  
+  // Normalize operation volumes
+  const rawVolumes = (raw.operationVolumes || raw.operation_volumes || []) as Record<string, unknown>[];
+  const operationVolumes: OperationVolume[] = rawVolumes.map(vol => normalizeVolume(vol));
+  
+  // Contact details
+  const rawContact = raw.contactDetails || raw.contact;
+  let contact: FlightPlan['contact'] | undefined;
+  if (rawContact && typeof rawContact === 'object') {
+    const c = rawContact as Record<string, unknown>;
+    contact = {
+      name: (c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim()) as string,
+      phone: (c.phone || (Array.isArray(c.phones) ? c.phones[0] : undefined)) as string | undefined,
+      email: (c.email || (Array.isArray(c.emails) ? c.emails[0] : undefined)) as string | undefined,
+    };
+  }
+  
+  return {
+    operation_plan_id: operationPlanId,
+    flight_plan_id: flightPlanId,
+    title,
+    description,
+    state,
+    submit_time: submitTime,
+    update_time: updateTime,
+    operation_volumes: operationVolumes,
+    contact,
+  };
+}
+
+function normalizeVolume(vol: Record<string, unknown>): OperationVolume {
+  // Time fields
+  const timeBegin = (vol.timeBegin || vol.effective_time_begin || '') as string;
+  const timeEnd = (vol.timeEnd || vol.effective_time_end || '') as string;
+  const actualTimeEnd = (vol.actualTimeEnd || vol.actual_time_end) as string | undefined;
+  
+  // Geometry - can be nested under operationGeometry.geom or directly in operation_geography
+  const operationGeometry = vol.operationGeometry as Record<string, unknown> | undefined;
+  const directGeography = vol.operation_geography as Record<string, unknown> | undefined;
+  
+  let geography: OperationVolume['operation_geography'];
+  if (operationGeometry?.geom) {
+    const geom = operationGeometry.geom as Record<string, unknown>;
+    geography = {
+      type: geom.type as string,
+      coordinates: geom.coordinates as number[][][] | number[][][][],
+    };
+  } else if (directGeography) {
+    geography = {
+      type: directGeography.type as string,
+      coordinates: directGeography.coordinates as number[][][] | number[][][][],
+    };
+  }
+  
+  // Altitude - can be nested under operationGeometry or directly on volume
+  const minAltRaw = (operationGeometry?.minAltitude || vol.min_altitude) as Record<string, unknown> | undefined;
+  const maxAltRaw = (operationGeometry?.maxAltitude || vol.max_altitude) as Record<string, unknown> | undefined;
+  
+  const minAltitude = minAltRaw ? {
+    altitude_value: (minAltRaw.altitudeValue ?? minAltRaw.altitude_value ?? 0) as number,
+    units_of_measure: (minAltRaw.unitsOfMeasure || minAltRaw.units_of_measure || 'FT') as string,
+    vertical_reference: (minAltRaw.altitudeType || minAltRaw.vertical_reference) as string | undefined,
+  } : undefined;
+  
+  const maxAltitude = maxAltRaw ? {
+    altitude_value: (maxAltRaw.altitudeValue ?? maxAltRaw.altitude_value ?? 0) as number,
+    units_of_measure: (maxAltRaw.unitsOfMeasure || maxAltRaw.units_of_measure || 'FT') as string,
+    vertical_reference: (maxAltRaw.altitudeType || maxAltRaw.vertical_reference) as string | undefined,
+  } : undefined;
+  
+  return {
+    id: (vol.id || vol.alias) as string | undefined,
+    ordinal: vol.ordinal as number | undefined,
+    effective_time_begin: timeBegin,
+    effective_time_end: timeEnd,
+    actual_time_end: actualTimeEnd,
+    min_altitude: minAltitude,
+    max_altitude: maxAltitude,
+    operation_geography: geography,
+    beyond_visual_line_of_sight: (vol.isBVLOS || vol.beyond_visual_line_of_sight) as boolean | undefined,
+  };
+}
+
 export function parseFlightPlans(data: unknown): FlightPlan[] {
+  let rawPlans: Record<string, unknown>[] = [];
+  
   if (Array.isArray(data)) {
-    return data as FlightPlan[];
-  }
-  if (typeof data === 'object' && data !== null) {
-    // Check if it's a single flight plan
-    if ('operation_plan_id' in data || 'operation_volumes' in data) {
-      return [data as FlightPlan];
-    }
-    // Check if it has a plans/operations array
+    rawPlans = data as Record<string, unknown>[];
+  } else if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>;
-    if (obj.plans && Array.isArray(obj.plans)) {
-      return obj.plans as FlightPlan[];
-    }
-    if (obj.operations && Array.isArray(obj.operations)) {
-      return obj.operations as FlightPlan[];
-    }
-    if (obj.flight_plans && Array.isArray(obj.flight_plans)) {
-      return obj.flight_plans as FlightPlan[];
+    // Check if it's a single flight plan
+    if ('operation_plan_id' in obj || 'operationPlanId' in obj || 'operation_volumes' in obj || 'operationVolumes' in obj) {
+      rawPlans = [obj];
+    } else if (obj.plans && Array.isArray(obj.plans)) {
+      rawPlans = obj.plans as Record<string, unknown>[];
+    } else if (obj.operations && Array.isArray(obj.operations)) {
+      rawPlans = obj.operations as Record<string, unknown>[];
+    } else if (obj.flight_plans && Array.isArray(obj.flight_plans)) {
+      rawPlans = obj.flight_plans as Record<string, unknown>[];
     }
   }
-  throw new Error('Invalid flight plan data format');
+  
+  if (rawPlans.length === 0) {
+    throw new Error('Invalid flight plan data format');
+  }
+  
+  return rawPlans.map(normalizeFlightPlan);
 }
 
 export function calculatePolygonArea(coordinates: number[][][] | number[][][][], type: string): number {
