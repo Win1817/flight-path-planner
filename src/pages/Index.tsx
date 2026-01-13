@@ -19,6 +19,7 @@ const Index = () => {
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredPlanId, setHoveredPlanId] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const handleFileLoad = useCallback((data: unknown) => {
     try {
@@ -38,6 +39,10 @@ const Index = () => {
 
   const handleError = useCallback((errorMessage: string) => {
     setError(errorMessage);
+  }, []);
+
+  const handleFileUpload = useCallback((fileName: string) => {
+    setUploadedFileName(fileName);
   }, []);
 
   const handleToggleSelect = useCallback((planId: string) => {
@@ -61,27 +66,20 @@ const Index = () => {
   }, [plans, selectedPlanIds.size]);
 
   const handleExport = useCallback(() => {
-    if (!geojson || selectedPlanIds.size === 0) return;
+    if (plans.length === 0 || selectedPlanIds.size === 0) return;
 
-    const filteredFeatures = geojson.features.filter(f => 
-      selectedPlanIds.has(f.properties.operationPlanId)
-    );
+    const selectedPlans = plans.filter(p => selectedPlanIds.has(p.operation_plan_id));
 
-    const exportData: FlightPlanGeoJSON = {
-      type: 'FeatureCollection',
-      features: filteredFeatures,
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(selectedPlans, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `flight-plans-${new Date().toISOString().slice(0, 10)}.geojson`;
+    a.download = uploadedFileName ? uploadedFileName.replace('.json', '-export.json') : `flight-plans-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [geojson, selectedPlanIds]);
+  }, [plans, selectedPlanIds, uploadedFileName]);
 
   const activePlan = plans.find(p => p.operation_plan_id === activePlanId);
   const highlightedPlanIds = selectedPlanIds.size > 0 
@@ -99,12 +97,12 @@ const Index = () => {
               <Plane className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Flight Ops Viewer</h1>
+              <h1 className="text-lg font-semibold text-foreground">Flight Operation Viewer</h1>
               <p className="text-xs text-muted-foreground">Upload & visualize flight plans</p>
             </div>
           </div>
           
-          <FileUpload onFileLoad={handleFileLoad} onError={handleError} />
+          <FileUpload onFileLoad={handleFileLoad} onError={handleError} onFileUpload={handleFileUpload} />
 
           {error && (
             <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -155,7 +153,7 @@ const Index = () => {
               variant="default"
             >
               <Download className="w-4 h-4" />
-              Export {selectedPlanIds.size} Plan{selectedPlanIds.size !== 1 ? 's' : ''} as GeoJSON
+              Export {selectedPlanIds.size} Plan{selectedPlanIds.size !== 1 ? 's' : ''} as JSON
             </Button>
           </div>
         )}

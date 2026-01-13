@@ -5,9 +5,10 @@ import { cn } from '@/lib/utils';
 interface FileUploadProps {
   onFileLoad: (data: unknown) => void;
   onError: (error: string) => void;
+  onFileUpload: (fileName: string) => void;
 }
 
-export function FileUpload({ onFileLoad, onError }: FileUploadProps) {
+export function FileUpload({ onFileLoad, onError, onFileUpload }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -26,6 +27,7 @@ export function FileUpload({ onFileLoad, onError }: FileUploadProps) {
         setFileName(file.name);
         setStatus('success');
         onFileLoad(data);
+        onFileUpload(file.name);
       } catch {
         setStatus('error');
         onError('Invalid JSON format');
@@ -36,7 +38,7 @@ export function FileUpload({ onFileLoad, onError }: FileUploadProps) {
       onError('Failed to read file');
     };
     reader.readAsText(file);
-  }, [onFileLoad, onError]);
+  }, [onFileLoad, onError, onFileUpload]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
