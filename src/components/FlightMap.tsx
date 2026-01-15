@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { FlightPlanGeoJSON, FlightPlanProperties } from '@/types/flightPlan';
+import type { FlightPlanGeoJSON } from '@/types/flightPlan';
 import { getBoundsFromGeoJSON, formatArea } from '@/utils/flightPlanUtils';
+import { FlightPlanProperties } from '@/types/flightPlan';
 
 interface FlightMapProps {
   geojson: FlightPlanGeoJSON | null;
@@ -11,27 +12,11 @@ interface FlightMapProps {
   onZoneHover: (planId: string | null) => void;
 }
 
-const ZONE_COLORS = [
-  '#3B82F6', // blue
-  '#10B981', // emerald
-  '#F59E0B', // amber
-  '#EF4444', // red
-  '#8B5CF6', // violet
-  '#EC4899', // pink
-  '#06B6D4', // cyan
-];
-
 export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHover }: FlightMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const popup = useRef<maplibregl.Popup | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const highlightedIdsRef = useRef<Set<string>>(highlightedPlanIds);
-
-  // Keep ref in sync
-  useEffect(() => {
-    highlightedIdsRef.current = highlightedPlanIds;
-  }, [highlightedPlanIds]);
 
   // Initialize map
   useEffect(() => {
@@ -94,67 +79,38 @@ export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHove
     const style = map.current.getStyle();
     if (!style) return;
 
-    // Remove existing layers and sources
-    const existingLayers = style.layers || [];
-    existingLayers.forEach(layer => {
-      if (layer.id.startsWith('zones-')) {
-        map.current?.removeLayer(layer.id);
-      }
-    });
-    if (map.current.getSource('flight-zones')) {
-      map.current.removeSource('flight-zones');
+    const sourceId = 'flight-zones';
+
+    // Manage source
+    let source = map.current.getSource(sourceId) as maplibregl.GeoJSONSource;
+    if (source) {
+      source.setData(geojson);
+    } else {
+      map.current.addSource(sourceId, {
+        type: 'geojson',
+        data: geojson,
+      });
     }
 
-    // Assign colors to each unique plan
-    const planIds = [...new Set(geojson.features.map(f => f.properties.operationPlanId))];
-    const colorMap: Record<string, string> = {};
-    planIds.forEach((id, index) => {
-      colorMap[id] = ZONE_COLORS[index % ZONE_COLORS.length];
-    });
+    // Manage fill layer
+    if (!map.current.getLayer('zones-fill')) {
+      map.current.addLayer({
+        id: 'zones-fill',
+        type: 'fill',
+        source: sourceId,
+        paint: {},
+      });
+    }
 
-    // Add colored features
-    const coloredFeatures = geojson.features.map(feature => {
-      const props: FlightPlanProperties = {
-        ...feature.properties,
-        color: colorMap[feature.properties.operationPlanId],
-      };
-      return {
-        type: 'Feature' as const,
-        properties: props,
-        geometry: feature.geometry,
-      };
-    });
-
-    map.current.addSource('flight-zones', {
-      type: 'geojson',
-      data: {
-        type: 'FeatureCollection' as const,
-        features: coloredFeatures,
-      },
-    });
-
-    // Fill layer
-    map.current.addLayer({
-      id: 'zones-fill',
-      type: 'fill',
-      source: 'flight-zones',
-      paint: {
-        'fill-color': ['get', 'color'],
-        'fill-opacity': 0.25,
-      },
-    });
-
-    // Outline layer
-    map.current.addLayer({
-      id: 'zones-outline',
-      type: 'line',
-      source: 'flight-zones',
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': 1.5,
-        'line-opacity': 0.9,
-      },
-    });
+    // Manage outline layer
+    if (!map.current.getLayer('zones-outline')) {
+      map.current.addLayer({
+        id: 'zones-outline',
+        type: 'line',
+        source: sourceId,
+        paint: {},
+      });
+    }
 
     // Fit bounds
     const bounds = getBoundsFromGeoJSON(geojson);
@@ -167,30 +123,30 @@ export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHove
     }
 
     // Click handler
-    map.current.on('click', 'zones-fill', (e) => {
+    const clickHandler = (e: maplibregl.MapLayerMouseEvent) => {
       if (e.features && e.features[0]) {
-        const planId = e.features[0].properties?.operationPlanId;
-        if (planId) {
-          onZoneClick(planId);
+        const props = e.features[0].properties as FlightPlanProperties;
+        if (props.flightPlanId) {
+          onZoneClick(props.flightPlanId);
         }
       }
-    });
+    };
 
     // Hover handlers
-    map.current.on('mouseenter', 'zones-fill', (e) => {
+    const mouseEnterHandler = (e: maplibregl.MapLayerMouseEvent) => {
       if (!map.current) return;
       map.current.getCanvas().style.cursor = 'pointer';
 
       if (e.features && e.features[0] && popup.current) {
-        const props = e.features[0].properties;
-        const planId = props?.operationPlanId;
-        if (planId) {
-          onZoneHover(planId);
+        const props = e.features[0].properties as FlightPlanProperties;
+        const id = props?.flightPlanId;
+        if (id) {
+          onZoneHover(id);
 
           const html = `
             <div class="space-y-1">
               <p class="font-semibold text-sm">${props?.title || 'Untitled'}</p>
-              <p class="font-mono text-xs opacity-70">${planId}</p>
+              <p class="font-mono text-xs opacity-70">${id}</p>
               <div class="flex gap-3 text-xs opacity-80 pt-1">
                 <span>Area: ${formatArea(props?.area || 0)}</span>
                 ${props?.maxAltitude ? `<span>Alt: ${props.maxAltitude} ${props.altitudeUnit}</span>` : ''}
@@ -204,14 +160,23 @@ export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHove
             .addTo(map.current);
         }
       }
-    });
+    };
 
-    map.current.on('mouseleave', 'zones-fill', () => {
+    const mouseLeaveHandler = () => {
       if (!map.current) return;
       map.current.getCanvas().style.cursor = '';
       popup.current?.remove();
       onZoneHover(null);
-    });
+    };
+    
+    map.current.off('click', 'zones-fill', clickHandler);
+    map.current.on('click', 'zones-fill', clickHandler);
+    
+    map.current.off('mouseenter', 'zones-fill', mouseEnterHandler);
+    map.current.on('mouseenter', 'zones-fill', mouseEnterHandler);
+
+    map.current.off('mouseleave', 'zones-fill', mouseLeaveHandler);
+    map.current.on('mouseleave', 'zones-fill', mouseLeaveHandler);
 
   }, [geojson, mapLoaded, onZoneClick, onZoneHover]);
 
@@ -222,25 +187,27 @@ export function FlightMap({ geojson, highlightedPlanIds, onZoneClick, onZoneHove
     const highlightedArray = Array.from(highlightedPlanIds);
     const hasHighlights = highlightedArray.length > 0;
 
-    if (map.current.getLayer('zones-fill')) {
-      map.current.setPaintProperty('zones-fill', 'fill-opacity', 
-        hasHighlights
-          ? ['case', ['in', ['get', 'operationPlanId'], ['literal', highlightedArray]], 0.5, 0.15]
-          : 0.25
-      );
-    }
+    map.current.setPaintProperty('zones-fill', 'fill-color', ['get', 'color']);
+    map.current.setPaintProperty('zones-fill', 'fill-opacity', 
+      hasHighlights
+        ? ['case', ['in', ['get', 'flightPlanId'], ['literal', highlightedArray]], 0.5, 0.15]
+        : 0.25
+    );
 
-    if (map.current.getLayer('zones-outline')) {
-      map.current.setPaintProperty('zones-outline', 'line-width',
-        hasHighlights
-          ? ['case', ['in', ['get', 'operationPlanId'], ['literal', highlightedArray]], 3, 1]
-          : 1.5
-      );
-    }
+    map.current.setPaintProperty('zones-outline', 'line-color', ['get', 'color']);
+    map.current.setPaintProperty('zones-outline', 'line-width',
+      hasHighlights
+        ? ['case', ['in', ['get', 'flightPlanId'], ['literal', highlightedArray]], 3, 1]
+        : 1.5
+    );
+    map.current.setPaintProperty('zones-outline', 'line-opacity', 0.9);
+
   }, [highlightedPlanIds, mapLoaded]);
 
   useEffect(() => {
-    updateHighlighting();
+    if (map.current?.isStyleLoaded()) {
+      updateHighlighting();
+    }
   }, [updateHighlighting]);
 
   return (

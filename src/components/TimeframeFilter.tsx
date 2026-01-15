@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
@@ -9,29 +8,21 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface TimeframeFilterProps {
+  date: DateRange | undefined;
   onTimeframeChange: (dateRange: DateRange | undefined) => void;
+  className?: string;
 }
 
-export function TimeframeFilter({ onTimeframeChange }: TimeframeFilterProps) {
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: addDays(new Date(), 7),
-  });
-
-  const handleDateChange = (newDate: DateRange | undefined) => {
-    setDate(newDate);
-    onTimeframeChange(newDate);
-  };
-
+export function TimeframeFilter({ date, onTimeframeChange, className }: TimeframeFilterProps) {
   return (
-    <div className="grid gap-2">
+    <div className={cn("grid gap-2", className)}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "w-full justify-start text-left font-normal",
               !date && "text-muted-foreground"
             )}
           >
@@ -45,7 +36,7 @@ export function TimeframeFilter({ onTimeframeChange }: TimeframeFilterProps) {
                 format(date.from, "LLL dd, y")
               )
             ) : (
-              <span>Pick a date</span>
+              <span>Pick a date range</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -55,7 +46,7 @@ export function TimeframeFilter({ onTimeframeChange }: TimeframeFilterProps) {
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={handleDateChange}
+            onSelect={onTimeframeChange}
             numberOfMonths={2}
           />
         </PopoverContent>

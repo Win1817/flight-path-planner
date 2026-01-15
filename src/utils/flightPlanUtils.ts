@@ -1,6 +1,19 @@
 import * as turf from '@turf/turf';
 import type { FlightPlan, ParsedFlightPlan, FlightPlanGeoJSON, FlightPlanFeature, FlightPlanProperties, OperationVolume } from '@/types/flightPlan';
 
+const ZONE_COLORS = [
+  '#3B82F6', // blue-500
+  '#10B981', // emerald-500
+  '#F59E0B', // amber-500
+  '#EF4444', // red-500
+  '#8B5CF6', // violet-500
+  '#EC4899', // pink-500
+  '#06B6D4', // cyan-500
+  '#F97316', // orange-500
+  '#22C55E', // green-500
+  '#6366F1', // indigo-500
+];
+
 // Normalize different API formats to our internal format
 function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   // Handle alternative field names (camelCase vs snake_case)
@@ -20,6 +33,8 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   const operator = raw.operator as string | undefined;
   const submitTime = (raw.submitTime || raw.submit_time) as string | undefined;
   const updateTime = (raw.updateTime || raw.update_time) as string | undefined;
+  const modeOfOperation = raw.modeOfOperation as string | undefined;
+  const swarmSize = raw.swarmSize as number | undefined;
   
   // Normalize operation volumes
   const rawVolumes = (raw.operationVolumes || raw.operation_volumes || []) as Record<string, unknown>[];
@@ -49,6 +64,8 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
     update_time: updateTime,
     operation_volumes: operationVolumes,
     contact,
+    modeOfOperation,
+    swarmSize,
   };
 }
 
@@ -162,7 +179,7 @@ export function getVolumeTimeRange(volumes: OperationVolume[]): { start: Date; e
   };
 }
 
-export function processFlightPlan(plan: FlightPlan): ParsedFlightPlan {
+export function processFlightPlan(plan: FlightPlan, index: number): ParsedFlightPlan {
   const allVolumes = [...(plan.operation_volumes || []), ...(plan.off_nominal_volumes || [])];
   const { start, end } = getVolumeTimeRange(allVolumes);
   
@@ -181,7 +198,8 @@ export function processFlightPlan(plan: FlightPlan): ParsedFlightPlan {
     computedArea: totalArea,
     startTime: start,
     endTime: end,
-    zoneCount: allVolumes.filter(v => v.operation_geography).length
+    zoneCount: allVolumes.filter(v => v.operation_geography).length,
+    color: ZONE_COLORS[index % ZONE_COLORS.length] // Assign color based on index
   };
 }
 
@@ -200,8 +218,8 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
       );
 
       const properties: FlightPlanProperties = {
-        flightPlanId: plan.flight_plan_id || plan.operation_plan_id,
-        operationPlanId: plan.operation_plan_id,
+        flightPlanId: plan.operation_plan_id,
+        type: 'flight-plan',
         operator: plan.operator,
         title: plan.title || 'Untitled Operation',
         description: plan.description || '',
@@ -213,7 +231,8 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
         altitudeUnit: volume.max_altitude?.units_of_measure || volume.min_altitude?.units_of_measure || 'FT',
         startTime: volume.effective_time_begin,
         endTime: volume.effective_time_end,
-        area
+        area,
+        color: plan.color
       };
 
       const geometry = volume.operation_geography.type === 'Polygon' 
@@ -235,6 +254,9 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
 }
 
 export function formatArea(squareMeters: number): string {
+  if (squareMeters >= 1000000) {
+    return `${(squareMeters / 1000000).toFixed(2)} km²`;
+  }
   if (squareMeters >= 10000) {
     return `${(squareMeters / 10000).toFixed(2)} ha`;
   }
@@ -269,47 +291,23 @@ export function getBoundsFromGeoJSON(geojson: FlightPlanGeoJSON): [[number, numb
   }
 }
 
-// Generate sample data for testing
-export function generateSampleFlightPlan(): FlightPlan {
-  const now = new Date();
-  const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+export function getOverallTimeRange(plans: ParsedFlightPlan[]): { from: Date; to: Date } | undefined {
+  if (plans.length === 0) {
+    return undefined;
+  }
+
+  const allStarts = plans.map(p => p.startTime.getTime()).filter(t => !isNaN(t));
+  const allEnds = plans.map(p => p.endTime.getTime()).filter(t => !isNaN(t));
+
+  if (allStarts.length === 0 || allEnds.length === 0) {
+      return undefined;
+  }
+
+  const minTime = Math.min(...allStarts);
+  const maxTime = Math.max(...allEnds);
 
   return {
-    operation_plan_id: `OP-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-    title: 'Sample Drone Survey Mission',
-    description: 'Aerial photography and mapping operation for agricultural land survey.',
-    state: 'ACCEPTED',
-    closureReason: 'NOMINAL',
-    operator: 'Test-Operator-123',
-    submit_time: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-    update_time: now.toISOString(),
-    operation_volumes: [
-      {
-        id: 'vol-001',
-        ordinal: 0,
-        effective_time_begin: now.toISOString(),
-        effective_time_end: later.toISOString(),
-        min_altitude: {
-          altitude_value: 50,
-          units_of_measure: 'FT',
-          vertical_reference: 'AGL'
-        },
-        max_altitude: {
-          altitude_value: 400,
-          units_of_measure: 'FT',
-          vertical_reference: 'AGL'
-        },
-        operation_geography: {
-          type: 'Polygon',
-          coordinates: [[
-            [-122.4194, 37.7749],
-            [-122.4094, 37.7749],
-            [-122.4094, 37.7849],
-            [-122.4194, 37.7849],
-            [-122.4194, 37.7749]
-          ]]
-        }
-      }
-    ]
+    from: new Date(minTime),
+    to: new Date(maxTime),
   };
 }

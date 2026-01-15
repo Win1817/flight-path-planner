@@ -35,7 +35,7 @@ export interface FlightPlan {
   title?: string;
   description?: string;
   state?: string;
-  closureReason?: string; // Added based on user request
+  closureReason?: string;
   priority?: number;
   submit_time?: string;
   update_time?: string;
@@ -51,6 +51,8 @@ export interface FlightPlan {
     phone?: string;
     email?: string;
   };
+  modeOfOperation?: string;
+  swarmSize?: number;
 }
 
 export interface ParsedFlightPlan extends FlightPlan {
@@ -61,6 +63,7 @@ export interface ParsedFlightPlan extends FlightPlan {
 }
 
 export interface FlightPlanProperties {
+  dataType: 'flight-plan';
   flightPlanId: string;
   operationPlanId: string;
   operator: string | undefined;
@@ -81,3 +84,56 @@ export interface FlightPlanProperties {
 export type FlightPlanFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, FlightPlanProperties>;
 
 export type FlightPlanGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, FlightPlanProperties>;
+
+//---------- AoR (Area of Responsibility) Types ----------
+
+export interface AorGeometry {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][] | number[][][][];
+}
+
+export interface Aor {
+  id: string;
+  name: string;
+  designator: string;
+  geometry: AorGeometry;
+  extendedGeometry?: AorGeometry;
+  lowerLimit: number;
+  upperLimit: number;
+  verticalLimitsUom: string;
+  verticalReferenceType: string;
+  autoReject: boolean;
+  autoApprovalEnabled: boolean;
+  aorEnabled: boolean;
+  autoTakeOffClearanceEnabled: boolean;
+  maxSimultaneousOperationsEnabled: boolean;
+  maxSimultaneousOperations: number;
+  featureType: string; // "responsibilityarea"
+}
+
+export interface ParsedAor extends Aor {
+  computedArea: number; // in square meters
+}
+
+export interface AorProperties {
+  dataType: 'aor';
+  aorId: string;
+  name: string;
+  designator: string;
+  lowerLimit: number;
+  upperLimit: number;
+  limitUnit: string;
+  verticalReference: string;
+  area: number;
+  color?: string;
+}
+
+export type AorFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, AorProperties>;
+
+export type AorGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, AorProperties>;
+
+//---------- Union Types for Generic Viewer ----------
+
+export type ViewerGeoJSON = FlightPlanGeoJSON | AorGeoJSON;
+export type ViewerFeature = FlightPlanFeature | AorFeature;
+export type ViewerProperties = FlightPlanProperties | AorProperties;

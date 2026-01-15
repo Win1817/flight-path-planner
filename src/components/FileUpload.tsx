@@ -3,12 +3,12 @@ import { Upload, FileJson, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FileUploadProps {
-  onFileLoad: (data: unknown) => void;
+  onFileLoad: (data: unknown, fileName: string) => void;
   onError: (error: string) => void;
-  onFileUpload: (fileName: string) => void;
+  label: string;
 }
 
-export function FileUpload({ onFileLoad, onError, onFileUpload }: FileUploadProps) {
+export function FileUpload({ onFileLoad, onError, label }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -26,8 +26,7 @@ export function FileUpload({ onFileLoad, onError, onFileUpload }: FileUploadProp
         const data = JSON.parse(e.target?.result as string);
         setFileName(file.name);
         setStatus('success');
-        onFileLoad(data);
-        onFileUpload(file.name);
+        onFileLoad(data, file.name);
       } catch {
         setStatus('error');
         onError('Invalid JSON format');
@@ -38,7 +37,7 @@ export function FileUpload({ onFileLoad, onError, onFileUpload }: FileUploadProp
       onError('Failed to read file');
     };
     reader.readAsText(file);
-  }, [onFileLoad, onError, onFileUpload]);
+  }, [onFileLoad, onError]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -115,7 +114,7 @@ export function FileUpload({ onFileLoad, onError, onFileUpload }: FileUploadProp
         ) : (
           <div>
             <p className="text-sm font-medium text-foreground">
-              {isDragging ? 'Drop your file here' : 'Upload Flight Plan JSON'}
+              {isDragging ? 'Drop your file here' : label}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Drag & drop or click to browse

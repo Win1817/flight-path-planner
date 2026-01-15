@@ -6,6 +6,31 @@
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --sidebar: 222 47% 98%;
+    --sidebar-border: 222 30% 90%;
+  }
+
+  .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 96%;
 
@@ -45,14 +70,8 @@
     --glow-primary: 0 0 20px hsl(217 91% 60% / 0.3);
     --glow-accent: 0 0 20px hsl(38 92% 50% / 0.3);
 
-    --sidebar-background: 222 47% 7%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar: 222 47% 7%;
     --sidebar-border: 222 30% 16%;
-    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -163,7 +182,7 @@
 }
 
 .maplibregl-ctrl-group {
-  background: hsl(var(--card)) !important;
+  background: hsl(var(--card)) !importan;
   border: 1px solid hsl(var(--border)) !important;
 }
 
