@@ -28,7 +28,7 @@ export interface OperationVolume {
   beyond_visual_line_of_sight?: boolean;
 }
 
-export interface FlightPlan {
+export interface Ops {
   operation_plan_id: string;
   flight_plan_id?: string;
   operator?: string;
@@ -55,16 +55,16 @@ export interface FlightPlan {
   swarmSize?: number;
 }
 
-export interface ParsedFlightPlan extends FlightPlan {
+export interface ParsedOps extends Ops {
   computedArea: number; // in square meters
   startTime: Date;
   endTime: Date;
   zoneCount: number;
 }
 
-export interface FlightPlanProperties {
-  dataType: 'flight-plan';
-  flightPlanId: string;
+export interface OpsProperties {
+  dataType: 'ops';
+  opsId: string;
   operationPlanId: string;
   operator: string | undefined;
   title: string;
@@ -81,9 +81,9 @@ export interface FlightPlanProperties {
   color?: string;
 }
 
-export type FlightPlanFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, FlightPlanProperties>;
+export type OpsFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, OpsProperties>;
 
-export type FlightPlanGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, FlightPlanProperties>;
+export type OpsGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, OpsProperties>;
 
 //---------- AoR (Area of Responsibility) Types ----------
 
@@ -134,6 +134,6 @@ export type AorGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.Mul
 
 //---------- Union Types for Generic Viewer ----------
 
-export type ViewerGeoJSON = FlightPlanGeoJSON | AorGeoJSON;
-export type ViewerFeature = FlightPlanFeature | AorFeature;
-export type ViewerProperties = FlightPlanProperties | AorProperties;
+export type ViewerGeoJSON = OpsGeoJSON | AorGeoJSON;
+export type ViewerFeature = OpsFeature | AorFeature;
+export type ViewerProperties = OpsProperties | AorProperties;

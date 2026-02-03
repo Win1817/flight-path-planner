@@ -1,5 +1,5 @@
 import * as turf from '@turf/turf';
-import type { FlightPlan, ParsedFlightPlan, FlightPlanGeoJSON, FlightPlanFeature, FlightPlanProperties, OperationVolume } from '@/types/flightPlan';
+import type { Ops, ParsedOps, OpsGeoJSON, OpsFeature, OpsProperties, OperationVolume } from '@/types/ops';
 
 const ZONE_COLORS = [
   '#3B82F6', // blue-500
@@ -14,8 +14,17 @@ const ZONE_COLORS = [
   '#6366F1', // indigo-500
 ];
 
+function ensureUtc(time: string | undefined): string | undefined {
+  if (!time) return undefined;
+  // If timezone is not specified, assume UTC.
+  if (/[Z+-][\d:]+$/.test(time)) {
+    return time;
+  }
+  return `${time}Z`;
+}
+
 // Normalize different API formats to our internal format
-function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
+function normalizeOps(raw: Record<string, unknown>): Ops {
   // Handle alternative field names (camelCase vs snake_case)
   const operationPlanId = (raw.operationPlanId || raw.operation_plan_id || '') as string;
   const flightPlanId = (raw.flightPlanId || raw.flight_plan_id) as string | undefined;
@@ -31,8 +40,8 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   const state = raw.state as string | undefined;
   const closureReason = raw.closureReason as string | undefined;
   const operator = raw.operator as string | undefined;
-  const submitTime = (raw.submitTime || raw.submit_time) as string | undefined;
-  const updateTime = (raw.updateTime || raw.update_time) as string | undefined;
+  const submitTime = ensureUtc((raw.submitTime || raw.submit_time) as string | undefined);
+  const updateTime = ensureUtc((raw.updateTime || raw.update_time) as string | undefined);
   const modeOfOperation = raw.modeOfOperation as string | undefined;
   const swarmSize = raw.swarmSize as number | undefined;
   
@@ -42,7 +51,7 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
   
   // Contact details
   const rawContact = raw.contactDetails || raw.contact;
-  let contact: FlightPlan['contact'] | undefined;
+  let contact: Ops['contact'] | undefined;
   if (rawContact && typeof rawContact === 'object') {
     const c = rawContact as Record<string, unknown>;
     contact = {
@@ -71,9 +80,9 @@ function normalizeFlightPlan(raw: Record<string, unknown>): FlightPlan {
 
 function normalizeVolume(vol: Record<string, unknown>): OperationVolume {
   // Time fields
-  const timeBegin = (vol.timeBegin || vol.effective_time_begin || '') as string;
-  const timeEnd = (vol.timeEnd || vol.effective_time_end || '') as string;
-  const actualTimeEnd = (vol.actualTimeEnd || vol.actual_time_end) as string | undefined;
+  const timeBegin = ensureUtc((vol.timeBegin || vol.effective_time_begin || '') as string);
+  const timeEnd = ensureUtc((vol.timeEnd || vol.effective_time_end || '') as string);
+  const actualTimeEnd = ensureUtc((vol.actualTimeEnd || vol.actual_time_end) as string | undefined);
   
   // Geometry - can be nested under operationGeometry.geom or directly in operation_geography
   const operationGeometry = vol.operationGeometry as Record<string, unknown> | undefined;
@@ -122,30 +131,30 @@ function normalizeVolume(vol: Record<string, unknown>): OperationVolume {
   };
 }
 
-export function parseFlightPlans(data: unknown): FlightPlan[] {
-  let rawPlans: Record<string, unknown>[] = [];
+export function parseOps(data: unknown): Ops[] {
+  let rawOps: Record<string, unknown>[] = [];
   
   if (Array.isArray(data)) {
-    rawPlans = data as Record<string, unknown>[];
+    rawOps = data as Record<string, unknown>[];
   } else if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, unknown>;
-    // Check if it's a single flight plan
+    // Check if it's a single op
     if ('operation_plan_id' in obj || 'operationPlanId' in obj || 'operation_volumes' in obj || 'operationVolumes' in obj) {
-      rawPlans = [obj];
+      rawOps = [obj];
     } else if (obj.plans && Array.isArray(obj.plans)) {
-      rawPlans = obj.plans as Record<string, unknown>[];
+      rawOps = obj.plans as Record<string, unknown>[];
     } else if (obj.operations && Array.isArray(obj.operations)) {
-      rawPlans = obj.operations as Record<string, unknown>[];
+      rawOps = obj.operations as Record<string, unknown>[];
     } else if (obj.flight_plans && Array.isArray(obj.flight_plans)) {
-      rawPlans = obj.flight_plans as Record<string, unknown>[];
+      rawOps = obj.flight_plans as Record<string, unknown>[];
     }
   }
   
-  if (rawPlans.length === 0) {
-    throw new Error('Invalid flight plan data format');
+  if (rawOps.length === 0) {
+    throw new Error('Invalid OPS data format');
   }
   
-  return rawPlans.map(normalizeFlightPlan);
+  return rawOps.map(normalizeOps);
 }
 
 export function calculatePolygonArea(coordinates: number[][][] | number[][][][], type: string): number {
@@ -165,8 +174,8 @@ export function calculatePolygonArea(coordinates: number[][][] | number[][][][],
 
 export function getVolumeTimeRange(volumes: OperationVolume[]): { start: Date; end: Date } {
   const times = volumes.flatMap(v => [
-    new Date(v.effective_time_begin),
-    new Date(v.effective_time_end)
+    new Date(v.effective_time_begin!),
+    new Date(v.effective_time_end!)
   ]).filter(d => !isNaN(d.getTime()));
 
   if (times.length === 0) {
@@ -179,8 +188,8 @@ export function getVolumeTimeRange(volumes: OperationVolume[]): { start: Date; e
   };
 }
 
-export function processFlightPlan(plan: FlightPlan, index: number): ParsedFlightPlan {
-  const allVolumes = [...(plan.operation_volumes || []), ...(plan.off_nominal_volumes || [])];
+export function processOps(op: Ops, index: number): ParsedOps {
+  const allVolumes = [...(op.operation_volumes || []), ...(op.off_nominal_volumes || [])];
   const { start, end } = getVolumeTimeRange(allVolumes);
   
   let totalArea = 0;
@@ -194,7 +203,7 @@ export function processFlightPlan(plan: FlightPlan, index: number): ParsedFlight
   });
 
   return {
-    ...plan,
+    ...op,
     computedArea: totalArea,
     startTime: start,
     endTime: end,
@@ -203,11 +212,11 @@ export function processFlightPlan(plan: FlightPlan, index: number): ParsedFlight
   };
 }
 
-export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJSON {
-  const features: FlightPlanFeature[] = [];
+export function opsToGeoJSON(ops: ParsedOps[]): OpsGeoJSON {
+  const features: OpsFeature[] = [];
 
-  plans.forEach(plan => {
-    const allVolumes = [...(plan.operation_volumes || []), ...(plan.off_nominal_volumes || [])];
+  ops.forEach(op => {
+    const allVolumes = [...(op.operation_volumes || []), ...(op.off_nominal_volumes || [])];
     
     allVolumes.forEach((volume, index) => {
       if (!volume.operation_geography) return;
@@ -217,14 +226,15 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
         volume.operation_geography.type
       );
 
-      const properties: FlightPlanProperties = {
-        flightPlanId: plan.operation_plan_id,
-        type: 'flight-plan',
-        operator: plan.operator,
-        title: plan.title || 'Untitled Operation',
-        description: plan.description || '',
-        state: plan.state,
-        closureReason: plan.closureReason,
+      const properties: OpsProperties = {
+        opsId: op.operation_plan_id,
+        operationPlanId: op.operation_plan_id,
+        dataType: 'ops',
+        operator: op.operator,
+        title: op.title || 'Untitled Operation',
+        description: op.description || '',
+        state: op.state,
+        closureReason: op.closureReason,
         volumeIndex: index,
         minAltitude: volume.min_altitude?.altitude_value ?? null,
         maxAltitude: volume.max_altitude?.altitude_value ?? null,
@@ -232,7 +242,7 @@ export function flightPlansToGeoJSON(plans: ParsedFlightPlan[]): FlightPlanGeoJS
         startTime: volume.effective_time_begin,
         endTime: volume.effective_time_end,
         area,
-        color: plan.color
+        color: op.color
       };
 
       const geometry = volume.operation_geography.type === 'Polygon' 
@@ -280,7 +290,7 @@ export function getOperationStatus(startTime: Date, endTime: Date): 'active' | '
   return 'active';
 }
 
-export function getBoundsFromGeoJSON(geojson: FlightPlanGeoJSON): [[number, number], [number, number]] | null {
+export function getBoundsFromGeoJSON(geojson: OpsGeoJSON): [[number, number], [number, number]] | null {
   if (geojson.features.length === 0) return null;
 
   try {
@@ -291,13 +301,13 @@ export function getBoundsFromGeoJSON(geojson: FlightPlanGeoJSON): [[number, numb
   }
 }
 
-export function getOverallTimeRange(plans: ParsedFlightPlan[]): { from: Date; to: Date } | undefined {
-  if (plans.length === 0) {
+export function getOverallTimeRange(ops: ParsedOps[]): { from: Date; to: Date } | undefined {
+  if (ops.length === 0) {
     return undefined;
   }
 
-  const allStarts = plans.map(p => p.startTime.getTime()).filter(t => !isNaN(t));
-  const allEnds = plans.map(p => p.endTime.getTime()).filter(t => !isNaN(t));
+  const allStarts = ops.map(p => p.startTime.getTime()).filter(t => !isNaN(t));
+  const allEnds = ops.map(p => p.endTime.getTime()).filter(t => !isNaN(t));
 
   if (allStarts.length === 0 || allEnds.length === 0) {
       return undefined;

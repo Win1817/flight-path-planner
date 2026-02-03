@@ -1,6 +1,6 @@
-import type { ParsedAor } from '@/types/flightPlan';
+import type { ParsedAor } from '@/types/ops';
 import { X, Shield, ArrowDown, ArrowUp, Ruler } from 'lucide-react';
-import { formatArea } from '@/utils/flightPlanUtils';
+import { formatArea } from '@/utils/opsUtils';
 
 interface AorDetailsProps {
   aor: ParsedAor;

@@ -1,48 +1,48 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Plane, AlertCircle, Download, CheckSquare, Square, Shield } from 'lucide-react';
 import { FileUpload } from '@/components/FileUpload';
-import { FlightPlanList } from '@/components/FlightPlanList';
+import { OpsList } from '@/components/OpsList';
 import { AorList } from '@/components/AorList';
-import { FlightDetails } from '@/components/FlightDetails';
+import { OpsDetails } from '@/components/OpsDetails';
 import { AorDetails } from '@/components/AorDetails';
 import { FlightMap } from '@/components/FlightMap';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { parseFlightPlans, processFlightPlan, flightPlansToGeoJSON, getOverallTimeRange, formatArea } from '@/utils/flightPlanUtils';
+import { parseOps, processOps, opsToGeoJSON, getOverallTimeRange, formatArea } from '@/utils/opsUtils';
 import { parseAors, processAor, aorsToGeoJSON } from '@/utils/aorUtils';
-import type { ParsedFlightPlan, ParsedAor, FlightPlanGeoJSON } from '@/types/flightPlan';
+import type { ParsedOps, ParsedAor, OpsGeoJSON } from '@/types/ops';
 import { DateRange } from 'react-day-picker';
 import * as XLSX from 'xlsx';
 
 const Index = () => {
-  const [plans, setPlans] = useState<ParsedFlightPlan[]>([]);
+  const [ops, setOps] = useState<ParsedOps[]>([]);
   const [aors, setAors] = useState<ParsedAor[]>([]);
-  const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
+  const [selectedOpIds, setSelectedOpIds] = useState<Set<string>>(new Set());
   const [selectedAorIds, setSelectedAorIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeType, setActiveType] = useState<'flight-plan' | 'aor' | null>(null);
+  const [activeType, setActiveType] = useState<'ops' | 'aor' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [uploadedFlightPlanFileName, setUploadedFlightPlanFileName] = useState<string | null>(null);
+  const [uploadedOpsFileName, setUploadedOpsFileName] = useState<string | null>(null);
   const [uploadedAorFileName, setUploadedAorFileName] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<DateRange | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState('flight-plans');
+  const [activeTab, setActiveTab] = useState('ops');
 
-  const handleFlightPlanFileLoad = useCallback((data: unknown, fileName: string) => {
+  const handleOpsFileLoad = useCallback((data: unknown, fileName: string) => {
     try {
       setError(null);
-      const parsedData = parseFlightPlans(data);
-      const processedPlans = parsedData.map((plan, index) => processFlightPlan(plan, index));
-      setPlans(processedPlans);
-      setTimeframe(getOverallTimeRange(processedPlans));
-      setSelectedPlanIds(new Set());
+      const parsedData = parseOps(data);
+      const processedOps = parsedData.map((op, index) => processOps(op, index));
+      setOps(processedOps);
+      setTimeframe(getOverallTimeRange(processedOps));
+      setSelectedOpIds(new Set());
       setActiveId(null);
-      setUploadedFlightPlanFileName(fileName);
-      setActiveTab('flight-plans');
+      setUploadedOpsFileName(fileName);
+      setActiveTab('ops');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to parse flight plan data');
-      setPlans([]);
+      setError(e instanceof Error ? e.message : 'Failed to parse ops data');
+      setOps([]);
     }
   }, []);
 
@@ -71,32 +71,37 @@ const Index = () => {
     setActiveId(null);
   }, []);
 
-  const filteredPlans = useMemo(() => {
+  const filteredOps = useMemo(() => {
     if (!timeframe || !timeframe.from) {
-      return plans;
+      return ops;
     }
-    const from = new Date(timeframe.from).setHours(0, 0, 0, 0);
-    const to = timeframe.to ? new Date(timeframe.to).setHours(23, 59, 59, 999) : new Date(timeframe.from).setHours(23, 59, 59, 999);
-    return plans.filter(plan => {
-      const planStart = plan.startTime.getTime();
-      const planEnd = plan.endTime.getTime();
-      return planStart <= to && planEnd >= from;
-    });
-  }, [plans, timeframe]);
 
-  const visibleSelectedPlanIds = useMemo(() => {
-    const currentPlanIds = filteredPlans.map(p => p.operation_plan_id);
-    return new Set([...selectedPlanIds].filter(id => currentPlanIds.includes(id)));
-  }, [selectedPlanIds, filteredPlans]);
+    const fromDate = timeframe.from;
+    const startOfDay = Date.UTC(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 0, 0, 0, 0);
+
+    const toDate = timeframe.to || timeframe.from;
+    const endOfDay = Date.UTC(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59, 999);
+
+    return ops.filter(op => {
+      const opStart = op.startTime.getTime();
+      const opEnd = op.endTime.getTime();
+      return opStart <= endOfDay && opEnd >= startOfDay;
+    });
+  }, [ops, timeframe]);
+
+  const visibleSelectedOpIds = useMemo(() => {
+    const currentOpIds = filteredOps.map(p => p.operation_plan_id);
+    return new Set([...selectedOpIds].filter(id => currentOpIds.includes(id)));
+  }, [selectedOpIds, filteredOps]);
   
-  const totalSelectedFlightPlanArea = useMemo(() => {
-    return filteredPlans.reduce((total, plan) => {
-      if (visibleSelectedPlanIds.has(plan.operation_plan_id)) {
-        return total + plan.computedArea;
+  const totalSelectedOpsArea = useMemo(() => {
+    return filteredOps.reduce((total, op) => {
+      if (visibleSelectedOpIds.has(op.operation_plan_id)) {
+        return total + op.computedArea;
       }
       return total;
     }, 0);
-  }, [filteredPlans, visibleSelectedPlanIds]);
+  }, [filteredOps, visibleSelectedOpIds]);
 
   const totalSelectedAorArea = useMemo(() => {
     return aors.reduce((total, aor) => {
@@ -107,17 +112,17 @@ const Index = () => {
     }, 0);
   }, [aors, selectedAorIds]);
 
-  const flightPlanGeojson = useMemo<FlightPlanGeoJSON>(() => flightPlansToGeoJSON(filteredPlans), [filteredPlans]);
+  const opsGeojson = useMemo<OpsGeoJSON>(() => opsToGeoJSON(filteredOps), [filteredOps]);
   const aorGeojson = useMemo(() => aorsToGeoJSON(aors), [aors]);
 
-  const viewerGeojson = useMemo<FlightPlanGeoJSON | null>(() => {
-    if (activeTab === 'flight-plans') return flightPlanGeojson;
+  const viewerGeojson = useMemo<OpsGeoJSON | null>(() => {
+    if (activeTab === 'ops') return opsGeojson;
     if (activeTab === 'aors') return aorGeojson;
     return null;
-  }, [activeTab, flightPlanGeojson, aorGeojson]);
+  }, [activeTab, opsGeojson, aorGeojson]);
 
-  const handleToggleSelectPlan = useCallback((id: string) => {
-    setSelectedPlanIds(prev => {
+  const handleToggleSelectOp = useCallback((id: string) => {
+    setSelectedOpIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -140,13 +145,13 @@ const Index = () => {
     });
   }, []);
 
-  const handleSelectAllPlans = useCallback(() => {
-    if (visibleSelectedPlanIds.size === filteredPlans.length) {
-      setSelectedPlanIds(new Set());
+  const handleSelectAllOps = useCallback(() => {
+    if (visibleSelectedOpIds.size === filteredOps.length) {
+      setSelectedOpIds(new Set());
     } else {
-      setSelectedPlanIds(new Set(filteredPlans.map(p => p.operation_plan_id)));
+      setSelectedOpIds(new Set(filteredOps.map(p => p.operation_plan_id)));
     }
-  }, [filteredPlans, visibleSelectedPlanIds.size]);
+  }, [filteredOps, visibleSelectedOpIds.size]);
 
   const handleSelectAllAors = useCallback(() => {
     if (selectedAorIds.size === aors.length) {
@@ -156,11 +161,11 @@ const Index = () => {
     };
   }, [aors, selectedAorIds.size]);
 
-  const handleFlightPlanExport = useCallback((format: 'json' | 'xlsx') => {
-    if (filteredPlans.length === 0 || visibleSelectedPlanIds.size === 0) return;
+  const handleOpsExport = useCallback((format: 'json' | 'xlsx') => {
+    if (filteredOps.length === 0 || visibleSelectedOpIds.size === 0) return;
 
-    const selectedPlansToExport = filteredPlans
-      .filter(p => visibleSelectedPlanIds.has(p.operation_plan_id))
+    const selectedOpsToExport = filteredOps
+      .filter(p => visibleSelectedOpIds.has(p.operation_plan_id))
       .flatMap(p => 
         p.operation_volumes.map(v => ({
           operationPlanId: p.operation_plan_id,
@@ -187,35 +192,35 @@ const Index = () => {
 
     if (format === 'json') {
       const exportObject = {
-        "comment": `Total number of flight plans: ${selectedPlansToExport.length}`,
-        "data": selectedPlansToExport
+        "comment": `Total number of ops: ${selectedOpsToExport.length}`,
+        "data": selectedOpsToExport
       };
 
       const blob = new Blob([JSON.stringify(exportObject, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = uploadedFlightPlanFileName ? uploadedFlightPlanFileName.replace(/\.json$/i, '-export.json') : `flight-plans-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = uploadedOpsFileName ? uploadedOpsFileName.replace(/\.json$/i, '-export.json') : `ops-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } else if (format === 'xlsx') {
-      const worksheet = XLSX.utils.json_to_sheet(selectedPlansToExport);
+      const worksheet = XLSX.utils.json_to_sheet(selectedOpsToExport);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Flight Plans");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "OPS");
       const xlsxBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
       const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = uploadedFlightPlanFileName ? uploadedFlightPlanFileName.replace(/\.json$/i, '-export.xlsx') : `flight-plans-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.download = uploadedOpsFileName ? uploadedOpsFileName.replace(/\.json$/i, '-export.xlsx') : `ops-${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
-  }, [filteredPlans, visibleSelectedPlanIds, uploadedFlightPlanFileName]);
+  }, [filteredOps, visibleSelectedOpIds, uploadedOpsFileName]);
 
   const handleAorExport = useCallback((format: 'json' | 'xlsx') => {
     if (aors.length === 0 || selectedAorIds.size === 0) return;
@@ -273,20 +278,20 @@ const Index = () => {
     }
   }, [aors, selectedAorIds, uploadedAorFileName]);
 
-  const activePlan = activeType === 'flight-plan' ? filteredPlans.find(p => p.operation_plan_id === activeId) : undefined;
+  const activeOp = activeType === 'ops' ? filteredOps.find(p => p.operation_plan_id === activeId) : undefined;
   const activeAor = activeType === 'aor' ? aors.find(a => a.id === activeId) : undefined;
 
   const highlightedIds = useMemo(() => {
     let ids: Set<string>;
-    if (activeTab === 'flight-plans') {
-      ids = new Set(visibleSelectedPlanIds);
+    if (activeTab === 'ops') {
+      ids = new Set(visibleSelectedOpIds);
     } else { // aors
       ids = new Set(selectedAorIds);
     }
     if(hoveredId) ids.add(hoveredId);
     if(activeId) ids.add(activeId);
     return ids;
-  }, [activeId, hoveredId, visibleSelectedPlanIds, selectedAorIds, activeTab]);
+  }, [activeId, hoveredId, visibleSelectedOpIds, selectedAorIds, activeTab]);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -298,8 +303,8 @@ const Index = () => {
               <Plane className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Flight Operation Viewer</h1>
-              <p className="text-xs text-muted-foreground">Upload & visualize flight plans and AoRs</p>
+              <h1 className="text-lg font-semibold text-foreground">OPS Viewer</h1>
+              <p className="text-xs text-muted-foreground">Upload & visualize flight operations and AoRs</p>
             </div>
           </div>
           {error && (
@@ -313,12 +318,12 @@ const Index = () => {
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
             <TabsList className="grid w-full grid-cols-2 mx-auto sticky top-0 bg-sidebar p-4">
-              <TabsTrigger value="flight-plans" className="flex items-center gap-2">
+              <TabsTrigger value="ops" className="flex items-center gap-2">
                 <Plane className="w-4 h-4" />
-                <span>Flight Plans</span>
-                {filteredPlans.length > 0 && (
+                <span>OPS</span>
+                {filteredOps.length > 0 && (
                   <Badge variant="secondary" className="px-2 py-0.5 text-xs">
-                    {filteredPlans.length}
+                    {filteredOps.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -330,38 +335,37 @@ const Index = () => {
                 )}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="flight-plans" className="flex-1 overflow-y-auto p-4 space-y-4">
+            <TabsContent value="ops" className="flex-1 overflow-y-auto p-4 space-y-4">
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <Plane className="w-4 h-4" /> Flight Plans
+                  <Plane className="w-4 h-4" /> OPS
                 </h3>
-                <FileUpload onFileLoad={handleFlightPlanFileLoad} onError={handleError} label="Upload Flight Plan JSON" />
+                <FileUpload onFileLoad={handleOpsFileLoad} onError={handleError} label="Upload OPS JSON" />
               </div>
-              {plans.length > 0 && (
+              {ops.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Flight Plans</h2>
+                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">OPS</h2>
                     <button
-                      onClick={handleSelectAllPlans}
+                      onClick={handleSelectAllOps}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                     >
-                      {visibleSelectedPlanIds.size === filteredPlans.length && filteredPlans.length > 0 ? (
+                      {visibleSelectedOpIds.size === filteredOps.length && filteredOps.length > 0 ? (
                         <CheckSquare className="w-3.5 h-3.5" />
                       ) : (
                         <Square className="w-3.5 h-3.5" />
                       )}
-                      {visibleSelectedPlanIds.size === filteredPlans.length && filteredPlans.length > 0 ? 'Deselect' : 'Select'} all
+                      {visibleSelectedOpIds.size === filteredOps.length && filteredOps.length > 0 ? 'Deselect' : 'Select'} all
                     </button>
                   </div>
-                  <FlightPlanList
-                    plans={filteredPlans}
-                    activePlanId={activeType === 'flight-plan' ? activeId : null}
-                    selectedPlanIds={visibleSelectedPlanIds}
-                    hoveredPlanId={hoveredId}
-                    onActivatePlan={(id) => { setActiveId(id); setActiveType('flight-plan'); }}
-                    onToggleSelect={handleToggleSelectPlan}
+                  <OpsList
+                    ops={filteredOps}
+                    activeOpId={activeType === 'ops' ? activeId : null}
+                    selectedOpIds={visibleSelectedOpIds}
+                    hoveredOpId={hoveredId}
+                    onActivateOp={(id) => { setActiveId(id); setActiveType('ops'); }}
+                    onToggleSelect={handleToggleSelectOp}
                     onTimeframeChange={handleTimeframeChange}
-                    onHoverPlan={setHoveredId}
                     timeframe={timeframe}
                   />
                 </div>
@@ -408,28 +412,28 @@ const Index = () => {
         <div className="border-t border-sidebar-border p-4 space-y-3 bg-sidebar-footer">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-foreground">
-              {activeTab === 'flight-plans' ? 'Flight Plans Selected' : 'AoRs Selected'}
+              {activeTab === 'ops' ? 'OPS Selected' : 'AoRs Selected'}
             </span>
             <span className="text-muted-foreground">
-              {activeTab === 'flight-plans' ? `${visibleSelectedPlanIds.size} / ${filteredPlans.length}` : `${selectedAorIds.size} / ${aors.length}`}
+              {activeTab === 'ops' ? `${visibleSelectedOpIds.size} / ${filteredOps.length}` : `${selectedAorIds.size} / ${aors.length}`}
             </span>
           </div>
 
-          {visibleSelectedPlanIds.size > 0 && activeTab === 'flight-plans' && (
+          {visibleSelectedOpIds.size > 0 && activeTab === 'ops' && (
             <div className="border-t border-sidebar-border pt-3 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Plane className="w-4 h-4" />
                   <span>Total Selected Area</span>
                 </div>
-                <span className="font-semibold text-foreground">{formatArea(totalSelectedFlightPlanArea)}</span>
+                <span className="font-semibold text-foreground">{formatArea(totalSelectedOpsArea)}</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={() => handleFlightPlanExport('json')} className="w-full gap-2" variant="outline">
+                <Button onClick={() => handleOpsExport('json')} className="w-full gap-2" variant="outline">
                   <Download className="w-4 h-4" />
                   Export JSON
                 </Button>
-                <Button onClick={() => handleFlightPlanExport('xlsx')} className="w-full gap-2" variant="outline">
+                <Button onClick={() => handleOpsExport('xlsx')} className="w-full gap-2" variant="outline">
                   <Download className="w-4 h-4" />
                   Export XLSX
                 </Button>
@@ -460,11 +464,11 @@ const Index = () => {
           )}
         </div>
 
-        {(activePlan || activeAor) && (
+        {(activeOp || activeAor) && (
           <div className="border-t border-sidebar-border p-4">
-            {activePlan && (
+            {activeOp && (
                 <div className="space-y-4">
-                    <FlightDetails plan={activePlan} onClose={() => setActiveId(null)} />
+                    <OpsDetails op={activeOp} onClose={() => setActiveId(null)} />
                 </div>
             )}
             {activeAor && <AorDetails aor={activeAor} onClose={() => setActiveId(null)} />}
@@ -475,31 +479,31 @@ const Index = () => {
       <div className="flex-1 relative">
         <FlightMap
           geojson={viewerGeojson}
-          highlightedPlanIds={highlightedIds}
+          highlightedIds={highlightedIds}
           onZoneClick={(id) => {
             setActiveId(id);
-            setActiveType('flight-plan');
-            setActiveTab('flight-plans');
+            setActiveType('ops');
+            setActiveTab('ops');
           }}
           onZoneHover={setHoveredId}
         />
 
-        {plans.length > 0 && filteredPlans.length === 0 && (
+        {ops.length > 0 && filteredOps.length === 0 && (
            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
              <div className="text-center p-8 rounded-xl glass-panel max-w-md">
-               <h2 className="text-xl font-semibold text-foreground mb-2">No Flight Plans in Timeframe</h2>
-               <p className="text-sm text-muted-foreground">There are no flight plans that match the selected time range. Try adjusting the filter.</p>
+               <h2 className="text-xl font-semibold text-foreground mb-2">No OPS in Timeframe</h2>
+               <p className="text-sm text-muted-foreground">There are no flight operations that match the selected time range. Try adjusting the filter.</p>
              </div>
            </div>
         )}
 
-        {plans.length === 0 && aors.length === 0 && (
+        {ops.length === 0 && aors.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col">
             <div className="p-4 rounded-full bg-primary/10 w-fit mx-auto mb-4">
               <Plane className="w-10 h-10 text-primary" />
             </div>
             <h2 className="text-xl font-semibold text-foreground mb-2">No Data Loaded</h2>
-            <p className="text-sm text-muted-foreground">Upload a file to visualize flight plans or AoRs on the map.</p>
+            <p className="text-sm text-muted-foreground">Upload a file to visualize flight operations or AoRs on the map.</p>
           </div>
         )}
       </div>

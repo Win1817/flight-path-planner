@@ -1,16 +1,16 @@
 import { X, Clock, Mountain, Maximize2, Calendar, FileText, Hash, Info, User } from 'lucide-react';
-import type { ParsedFlightPlan } from '@/types/flightPlan';
-import { formatArea, formatDateTime, getOperationStatus } from '@/utils/flightPlanUtils';
+import type { ParsedOps } from '@/types/ops';
+import { formatArea, formatDateTime, getOperationStatus } from '@/utils/opsUtils';
 import { cn } from '@/lib/utils';
 
-interface FlightDetailsProps {
-  plan: ParsedFlightPlan;
+interface OpsDetailsProps {
+  op: ParsedOps;
   onClose: () => void;
 }
 
-export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
-  const status = getOperationStatus(plan.startTime, plan.endTime);
-  const allVolumes = [...(plan.operation_volumes || []), ...(plan.off_nominal_volumes || [])];
+export function OpsDetails({ op, onClose }: OpsDetailsProps) {
+  const status = getOperationStatus(op.startTime, op.endTime);
+  const allVolumes = [...(op.operation_volumes || []), ...(op.off_nominal_volumes || [])];
   
   // Get min/max altitudes across all volumes
   const altitudes = allVolumes
@@ -28,7 +28,7 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
   return (
     <div className="glass-panel rounded-lg overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground">Flight Plan Details</h2>
+        <h2 className="text-sm font-semibold text-foreground">OPS Details</h2>
         <button
           onClick={onClose}
           className="p-1.5 rounded-md hover:bg-muted transition-colors"
@@ -47,36 +47,36 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
             </span>
           </div>
           <h3 className="text-lg font-semibold text-foreground">
-            {plan.title || 'Untitled Operation'}
+            {op.title || 'Untitled Operation'}
           </h3>
-          {plan.description && (
+          {op.description && (
             <p className="text-sm text-muted-foreground mt-2">
-              {plan.description}
+              {op.description}
             </p>
           )}
         </div>
 
         {/* Status Information */}
-        {(plan.state || plan.closureReason) && (
+        {(op.state || op.closureReason) && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
               <Info className="w-3.5 h-3.5 text-primary" />
               Status
             </h4>
             <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-3">
-              {plan.state && (
+              {op.state && (
                 <div>
                   <p className="data-label">State</p>
                   <p className="text-md font-semibold text-foreground">
-                    {plan.state}
+                    {op.state}
                   </p>
                 </div>
               )}
-              {plan.closureReason && (
+              {op.closureReason && (
                 <div>
                   <p className="data-label">Closure Reason</p>
                   <p className="text-md font-semibold text-foreground">
-                    {plan.closureReason}
+                    {op.closureReason}
                   </p>
                 </div>
               )}
@@ -85,7 +85,7 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
         )}
         
         {/* Operator Information */}
-        {plan.operator && (
+        {op.operator && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
               <User className="w-3.5 h-3.5 text-primary" />
@@ -95,7 +95,7 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
               <div>
                 <p className="data-label">Operator ID</p>
                 <p className="font-mono text-sm text-foreground break-all">
-                  {plan.operator}
+                  {op.operator}
                 </p>
               </div>
             </div>
@@ -109,17 +109,17 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
             <div>
               <p className="data-label">Operation Plan ID</p>
               <p className="font-mono text-sm text-foreground break-all">
-                {plan.operation_plan_id}
+                {op.operation_plan_id}
               </p>
             </div>
           </div>
-          {plan.flight_plan_id && plan.flight_plan_id !== plan.operation_plan_id && (
+          {op.flight_plan_id && op.flight_plan_id !== op.operation_plan_id && (
             <div className="flex items-start gap-3">
               <FileText className="w-4 h-4 text-primary mt-0.5" />
               <div>
                 <p className="data-label">Flight Plan ID</p>
                 <p className="font-mono text-sm text-foreground break-all">
-                  {plan.flight_plan_id}
+                  {op.flight_plan_id}
                 </p>
               </div>
             </div>
@@ -136,28 +136,28 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
             <div>
               <p className="data-label">Start Time</p>
               <p className="font-mono text-sm text-foreground">
-                {formatDateTime(plan.startTime)}
+                {formatDateTime(op.startTime)}
               </p>
             </div>
             <div>
               <p className="data-label">End Time</p>
               <p className="font-mono text-sm text-foreground">
-                {formatDateTime(plan.endTime)}
+                {formatDateTime(op.endTime)}
               </p>
             </div>
-            {plan.submit_time && (
+            {op.submit_time && (
               <div>
                 <p className="data-label">Submit Time</p>
                 <p className="font-mono text-sm text-muted-foreground">
-                  {formatDateTime(plan.submit_time)}
+                  {formatDateTime(op.submit_time)}
                 </p>
               </div>
             )}
-            {plan.update_time && (
+            {op.update_time && (
               <div>
                 <p className="data-label">Last Updated</p>
                 <p className="font-mono text-sm text-muted-foreground">
-                  {formatDateTime(plan.update_time)}
+                  {formatDateTime(op.update_time)}
                 </p>
               </div>
             )}
@@ -200,19 +200,19 @@ export function FlightDetails({ plan, onClose }: FlightDetailsProps) {
             <div>
               <p className="data-label">Total Area</p>
               <p className="text-lg font-semibold text-foreground">
-                {formatArea(plan.computedArea)}
+                {formatArea(op.computedArea)}
               </p>
             </div>
             <div>
               <p className="data-label">Zone Count</p>
               <p className="text-lg font-semibold text-foreground">
-                {plan.zoneCount}
+                {op.zoneCount}
               </p>
             </div>
             <div className="col-span-2">
               <p className="data-label">Area (m²)</p>
               <p className="font-mono text-sm text-muted-foreground">
-                {plan.computedArea.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²
+                {op.computedArea.toLocaleString(undefined, { maximumFractionDigits: 2 })} m²
               </p>
             </div>
           </div>
