@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uas-tool
+  annotations:
+    # Removed rewrite-target so /uas-tool stays in the path sent to the pod
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - uas.ops.io
+    secretName: uas-tls
+  rules:
+  - host: uas.ops.io
+    http:
+      paths:
+      - path: /uas-tool/
+        pathType: Prefix
+        backend:
+          service:
+            name: uas-tool
+            port:
+              number: 80

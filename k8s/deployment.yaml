@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uas-tool
+  labels:
+    app: uas-tool
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uas-tool
+  template:
+    metadata:
+      labels:
+        app: uas-tool
+    spec:
+      imagePullSecrets:
+        - name: harboracr
+      containers:
+      - name: uas-tool
+        image: harbor.ops.io/utm-devops/uas-tool:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
