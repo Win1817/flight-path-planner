@@ -103,17 +103,25 @@ export interface Aor {
   upperLimit: number;
   verticalLimitsUom: string;
   verticalReferenceType: string;
-  autoReject: boolean;
-  autoApprovalEnabled: boolean;
-  aorEnabled: boolean;
-  autoTakeOffClearanceEnabled: boolean;
-  maxSimultaneousOperationsEnabled: boolean;
-  maxSimultaneousOperations: number;
-  featureType: string; // "responsibilityarea"
+  // UTM-workflow fields, present only on the "responsibility area" schema
+  autoReject?: boolean;
+  autoApprovalEnabled?: boolean;
+  aorEnabled?: boolean;
+  autoTakeOffClearanceEnabled?: boolean;
+  maxSimultaneousOperationsEnabled?: boolean;
+  maxSimultaneousOperations?: number;
+  featureType?: string; // "responsibilityarea"
+  // Zone/NOTAM fields, present only on the "airspace zone" schema
+  restriction?: string;
+  reasons?: string[];
+  message?: string;
+  effectiveTimeBegin?: string;
+  effectiveTimeEnd?: string;
 }
 
 export interface ParsedAor extends Aor {
   computedArea: number; // in square meters
+  color?: string;
 }
 
 export interface AorProperties {
@@ -135,6 +143,6 @@ export type AorGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.Mul
 
 //---------- Union Types for Generic Viewer ----------
 
-export type ViewerGeoJSON = OpsGeoJSON | AorGeoJSON;
-export type ViewerFeature = OpsFeature | AorFeature;
 export type ViewerProperties = OpsProperties | AorProperties;
+export type ViewerFeature = GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon, ViewerProperties>;
+export type ViewerGeoJSON = GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, ViewerProperties>;

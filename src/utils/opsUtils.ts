@@ -14,10 +14,10 @@ const ZONE_COLORS = [
   '#6366F1', // indigo-500
 ];
 
-function ensureUtc(time: string | undefined): string | undefined {
+export function ensureUtc(time: string | undefined): string | undefined {
   if (!time) return undefined;
   // If timezone is not specified, assume UTC.
-  if (/[Z+-][\d:]+$/.test(time)) {
+  if (/(Z|[+-]\d{2}:?\d{2})$/.test(time)) {
     return time;
   }
   return `${time}Z`;

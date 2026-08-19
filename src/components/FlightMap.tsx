@@ -7,7 +7,7 @@ import { getBoundsFromGeoJSON, formatArea } from '@/utils/opsUtils';
 interface FlightMapProps {
   geojson: ViewerGeoJSON | null;
   highlightedIds: Set<string>;
-  onZoneClick: (opId: string) => void;
+  onZoneClick: (id: string, dataType: 'ops' | 'aor') => void;
   onZoneHover: (opId: string | null) => void;
 }
 
@@ -138,9 +138,10 @@ export function FlightMap({ geojson, highlightedIds, onZoneClick, onZoneHover }:
     const clickHandler = (e: maplibregl.MapLayerMouseEvent) => {
       if (e.features && e.features[0]) {
         const props = e.features[0].properties as OpsProperties | AorProperties;
-        const id = ('opsId' in props ? props.opsId : undefined) || ('aorId' in props ? props.aorId : undefined);
-        if (id) {
-          onZoneClick(id);
+        if ('opsId' in props && props.opsId) {
+          onZoneClick(props.opsId, 'ops');
+        } else if ('aorId' in props && props.aorId) {
+          onZoneClick(props.aorId, 'aor');
         }
       }
     };

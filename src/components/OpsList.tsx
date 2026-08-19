@@ -1,8 +1,10 @@
-import { Plane, Clock, Layers, MapPin, Check } from 'lucide-react';
+import { Plane, Clock, Layers, MapPin, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ParsedOps } from '@/types/ops';
 import { formatArea, formatDateTimeShort, getOperationStatus } from '@/utils/opsUtils';
 import { TimeframeFilter } from '@/components/TimeframeFilter';
+import { ClosureReasonFilter } from '@/components/ClosureReasonFilter';
+import { SearchInput } from '@/components/SearchInput';
 import { DateRange } from 'react-day-picker';
 
 interface OpsListProps {
@@ -12,39 +14,57 @@ interface OpsListProps {
   hoveredOpId: string | null;
   onActivateOp: (opId: string) => void;
   onToggleSelect: (opId: string) => void;
+  onDelete: (opId: string) => void;
   onTimeframeChange: (dateRange: DateRange | undefined) => void;
   timeframe: DateRange | undefined;
+  availableClosureReasons: string[];
+  closureReasonFilter: Set<string>;
+  onToggleClosureReason: (reason: string) => void;
+  onClearClosureReasons: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }
 
-export function OpsList({ 
-  ops, 
-  activeOpId, 
-  selectedOpIds, 
+export function OpsList({
+  ops,
+  activeOpId,
+  selectedOpIds,
   hoveredOpId,
-  onActivateOp, 
+  onActivateOp,
   onToggleSelect,
+  onDelete,
   onTimeframeChange,
-  timeframe
+  timeframe,
+  availableClosureReasons,
+  closureReasonFilter,
+  onToggleClosureReason,
+  onClearClosureReasons,
+  searchQuery,
+  onSearchChange
 }: OpsListProps) {
-  if (ops.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="p-4 rounded-full bg-muted/50 mb-4">
-          <Plane className="w-8 h-8 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          No OPS loaded
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Upload a JSON file to get started
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
+      <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Search OPS by title, ID, operator..." />
       <TimeframeFilter date={timeframe} onTimeframeChange={onTimeframeChange} />
+      <ClosureReasonFilter
+        options={availableClosureReasons}
+        selected={closureReasonFilter}
+        onToggle={onToggleClosureReason}
+        onClear={onClearClosureReasons}
+      />
+      {ops.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <div className="p-4 rounded-full bg-muted/50 mb-3">
+            <Plane className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            No OPS match the current filters
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try adjusting the search, timeframe, or closure reason
+          </p>
+        </div>
+      )}
       {ops.map((op) => {
         const status = getOperationStatus(op.startTime, op.endTime);
         const isActive = activeOpId === op.operation_plan_id;
@@ -69,20 +89,32 @@ export function OpsList({
               }}
               className={cn(
                 'absolute top-3 right-3 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
-                isSelected 
-                  ? 'bg-primary border-primary text-primary-foreground' 
+                isSelected
+                  ? 'bg-primary border-primary text-primary-foreground'
                   : 'border-muted-foreground/50 hover:border-primary'
               )}
             >
               {isSelected && <Check className="w-3 h-3" />}
             </button>
 
+            {/* Delete */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(op.operation_plan_id);
+              }}
+              title="Delete operation"
+              className="absolute top-3 right-11 w-5 h-5 rounded flex items-center justify-center text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+
             {/* Card content */}
-            <div 
+            <div
               onClick={() => onActivateOp(op.operation_plan_id)}
               className="cursor-pointer"
             >
-              <div className="flex items-start justify-between gap-2 mb-3 pr-8">
+              <div className="flex items-start justify-between gap-2 mb-3 pr-16">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-foreground truncate">
                     {op.title || 'Untitled Operation'}
