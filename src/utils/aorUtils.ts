@@ -1,15 +1,16 @@
 import * as turf from '@turf/turf';
-import type { Aor, ParsedAor, AorGeoJSON, AorFeature, AorProperties } from '@/types/flightPlan';
+import type { Aor, ParsedAor, AorGeoJSON, AorFeature, AorProperties, AorGeometry } from '@/types/ops';
 
 // Basic validation for raw AoR data
-function isValidAor(raw: any): raw is Record<string, unknown> {
-  return typeof raw === 'object' && raw !== null &&
-         typeof raw.id === 'string' &&
-         typeof raw.name === 'string' &&
-         typeof raw.designator === 'string' &&
-         typeof raw.geometry === 'object' &&
-         typeof raw.lowerLimit === 'number' &&
-         typeof raw.upperLimit === 'number';
+function isValidAor(raw: unknown): raw is Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null) return false;
+  const r = raw as Record<string, unknown>;
+  return typeof r.id === 'string' &&
+         typeof r.name === 'string' &&
+         typeof r.designator === 'string' &&
+         typeof r.geometry === 'object' &&
+         typeof r.lowerLimit === 'number' &&
+         typeof r.upperLimit === 'number';
 }
 
 // Normalize a single AoR object
@@ -21,8 +22,8 @@ function normalizeAor(raw: Record<string, unknown>): Aor {
     id: raw.id as string,
     name: raw.name as string,
     designator: raw.designator as string,
-    geometry: raw.geometry as any, // Consider adding stronger validation here
-    extendedGeometry: raw.extendedGeometry as any,
+    geometry: raw.geometry as AorGeometry, // Consider adding stronger validation here
+    extendedGeometry: raw.extendedGeometry as AorGeometry | undefined,
     lowerLimit: raw.lowerLimit as number,
     upperLimit: raw.upperLimit as number,
     verticalLimitsUom: raw.verticalLimitsUom as string,
@@ -45,12 +46,13 @@ export function parseAors(data: unknown): Aor[] {
     rawAors = data as Record<string, unknown>[];
   } else if (typeof data === 'object' && data !== null) {
     // Handle nested structures if necessary, e.g., data.aors
+    const obj = data as Record<string, unknown>;
     if (isValidAor(data)) {
         rawAors = [data];
-    } else if ('aors' in data && Array.isArray((data as any).aors)) {
-        rawAors = (data as any).aors;
-    } else if ('responsibility_areas' in data && Array.isArray((data as any).responsibility_areas)) {
-        rawAors = (data as any).responsibility_areas;
+    } else if (Array.isArray(obj.aors)) {
+        rawAors = obj.aors as Record<string, unknown>[];
+    } else if (Array.isArray(obj.responsibility_areas)) {
+        rawAors = obj.responsibility_areas as Record<string, unknown>[];
     }
   }
 
@@ -62,13 +64,13 @@ export function parseAors(data: unknown): Aor[] {
 }
 
 // Calculate area of a polygon or multipolygon
-export function calculateAorArea(geometry: any): number {
+export function calculateAorArea(geometry: AorGeometry): number {
   try {
     if (geometry.type === 'Polygon') {
-      const polygon = turf.polygon(geometry.coordinates);
+      const polygon = turf.polygon(geometry.coordinates as number[][][]);
       return turf.area(polygon);
     } else if (geometry.type === 'MultiPolygon') {
-      const multiPolygon = turf.multiPolygon(geometry.coordinates);
+      const multiPolygon = turf.multiPolygon(geometry.coordinates as number[][][][]);
       return turf.area(multiPolygon);
     }
     return 0;
@@ -103,10 +105,14 @@ export function aorsToGeoJSON(aors: ParsedAor[]): AorGeoJSON {
       color: '#FFD700' // Example color for AoRs
     };
 
+    const geometry = aor.geometry.type === 'Polygon'
+      ? { type: 'Polygon' as const, coordinates: aor.geometry.coordinates as number[][][] }
+      : { type: 'MultiPolygon' as const, coordinates: aor.geometry.coordinates as number[][][][] };
+
     return {
       type: 'Feature',
       properties,
-      geometry: aor.geometry, // Assuming geometry is already a valid GeoJSON geometry
+      geometry,
     };
   });
 

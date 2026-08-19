@@ -11,11 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseOps, processOps, opsToGeoJSON, getOverallTimeRange, formatArea } from '@/utils/opsUtils';
 import { parseAors, processAor, aorsToGeoJSON } from '@/utils/aorUtils';
-import type { ParsedOps, ParsedAor, OpsGeoJSON } from '@/types/ops';
+import type { ParsedOps, ParsedAor, OpsGeoJSON, ViewerGeoJSON } from '@/types/ops';
 import { DateRange } from 'react-day-picker';
 import * as XLSX from 'xlsx';
+import { useSearchParams } from 'react-router-dom';
 
 const Index = () => {
+  const [searchParams] = useSearchParams();
   const [ops, setOps] = useState<ParsedOps[]>([]);
   const [aors, setAors] = useState<ParsedAor[]>([]);
   const [selectedOpIds, setSelectedOpIds] = useState<Set<string>>(new Set());
@@ -27,7 +29,10 @@ const Index = () => {
   const [uploadedOpsFileName, setUploadedOpsFileName] = useState<string | null>(null);
   const [uploadedAorFileName, setUploadedAorFileName] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<DateRange | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState('ops');
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'aors' ? 'aors' : 'ops';
+  });
 
   const handleOpsFileLoad = useCallback((data: unknown, fileName: string) => {
     try {
@@ -115,7 +120,7 @@ const Index = () => {
   const opsGeojson = useMemo<OpsGeoJSON>(() => opsToGeoJSON(filteredOps), [filteredOps]);
   const aorGeojson = useMemo(() => aorsToGeoJSON(aors), [aors]);
 
-  const viewerGeojson = useMemo<OpsGeoJSON | null>(() => {
+  const viewerGeojson = useMemo<ViewerGeoJSON | null>(() => {
     if (activeTab === 'ops') return opsGeojson;
     if (activeTab === 'aors') return aorGeojson;
     return null;
@@ -229,7 +234,7 @@ const Index = () => {
       .filter(a => selectedAorIds.has(a.id))
       .map(aor => ({
         id: aor.id,
-        name: aor.name.split(' ')[0],
+        name: aor.name,
         designator: aor.designator,
         lowerLimit: aor.lowerLimit,
         upperLimit: aor.upperLimit,

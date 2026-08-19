@@ -1,4 +1,4 @@
-import type { ParsedAor } from '@/types/flightPlan';
+import type { ParsedAor } from '@/types/ops';
 import { Shield, CheckSquare, Square } from 'lucide-react';
 
 interface AorListProps {

@@ -1,5 +1,5 @@
 import * as turf from '@turf/turf';
-import type { Ops, ParsedOps, OpsGeoJSON, OpsFeature, OpsProperties, OperationVolume } from '@/types/ops';
+import type { Ops, ParsedOps, OpsGeoJSON, OpsFeature, OpsProperties, OperationVolume, ViewerGeoJSON } from '@/types/ops';
 
 const ZONE_COLORS = [
   '#3B82F6', // blue-500
@@ -290,7 +290,7 @@ export function getOperationStatus(startTime: Date, endTime: Date): 'active' | '
   return 'active';
 }
 
-export function getBoundsFromGeoJSON(geojson: OpsGeoJSON): [[number, number], [number, number]] | null {
+export function getBoundsFromGeoJSON(geojson: ViewerGeoJSON): [[number, number], [number, number]] | null {
   if (geojson.features.length === 0) return null;
 
   try {

@@ -60,6 +60,7 @@ export interface ParsedOps extends Ops {
   startTime: Date;
   endTime: Date;
   zoneCount: number;
+  color?: string;
 }
 
 export interface OpsProperties {

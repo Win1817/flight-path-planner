@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import type { OpsGeoJSON } from '@/types/ops';
+import type { ViewerGeoJSON, OpsProperties, AorProperties } from '@/types/ops';
 import { getBoundsFromGeoJSON, formatArea } from '@/utils/opsUtils';
 
 interface FlightMapProps {
-  geojson: OpsGeoJSON | null;
+  geojson: ViewerGeoJSON | null;
   highlightedIds: Set<string>;
   onZoneClick: (opId: string) => void;
   onZoneHover: (opId: string | null) => void;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function FlightMap({ geojson, highlightedIds, onZoneClick, onZoneHover }: FlightMapProps) {
@@ -78,7 +87,7 @@ export function FlightMap({ geojson, highlightedIds, onZoneClick, onZoneHover }:
     const sourceId = 'ops-zones';
 
     // Manage source
-    let source = map.current.getSource(sourceId) as maplibregl.GeoJSONSource;
+    const source = map.current.getSource(sourceId) as maplibregl.GeoJSONSource;
     if (source) {
       source.setData(geojson);
     } else {
@@ -128,8 +137,8 @@ export function FlightMap({ geojson, highlightedIds, onZoneClick, onZoneHover }:
     // Click handler
     const clickHandler = (e: maplibregl.MapLayerMouseEvent) => {
       if (e.features && e.features[0]) {
-        const props = e.features[0].properties as any;
-        const id = props.opsId || props.aorId;
+        const props = e.features[0].properties as OpsProperties | AorProperties;
+        const id = ('opsId' in props ? props.opsId : undefined) || ('aorId' in props ? props.aorId : undefined);
         if (id) {
           onZoneClick(id);
         }
@@ -142,18 +151,22 @@ export function FlightMap({ geojson, highlightedIds, onZoneClick, onZoneHover }:
       map.current.getCanvas().style.cursor = 'pointer';
 
       if (e.features && e.features[0] && popup.current) {
-        const props = e.features[0].properties as any;
-        const id = props.opsId || props.aorId;
+        const props = e.features[0].properties as OpsProperties | AorProperties;
+        const id = ('opsId' in props ? props.opsId : undefined) || ('aorId' in props ? props.aorId : undefined);
         if (id) {
           onZoneHover(id);
 
+          const title = 'title' in props ? props.title : ('name' in props ? props.name : 'Untitled');
+          const maxAltitude = 'maxAltitude' in props ? props.maxAltitude : undefined;
+          const altitudeUnit = 'altitudeUnit' in props ? props.altitudeUnit : undefined;
+
           const html = `
             <div class="space-y-1">
-              <p class="font-semibold text-sm">${props?.title || props?.name || 'Untitled'}</p>
-              <p class="font-mono text-xs opacity-70">${id}</p>
+              <p class="font-semibold text-sm">${escapeHtml(title || 'Untitled')}</p>
+              <p class="font-mono text-xs opacity-70">${escapeHtml(id)}</p>
               <div class="flex gap-3 text-xs opacity-80 pt-1">
                 <span>Area: ${formatArea(props?.area || 0)}</span>
-                ${props?.maxAltitude ? `<span>Alt: ${props.maxAltitude} ${props.altitudeUnit}</span>` : ''}
+                ${maxAltitude ? `<span>Alt: ${escapeHtml(String(maxAltitude))} ${escapeHtml(altitudeUnit || '')}</span>` : ''}
               </div>
             </div>
           `;
