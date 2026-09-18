@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="380"
+             x:Class="FlightPathPlanner.Views.ReportTabView"
+             x:DataType="vm:ReportTabViewModel">
+
+  <Grid>
+
+    <!-- Empty state: no OPS and/or AoR data loaded yet -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" Margin="20"
+                IsVisible="{Binding !HasOpsAndAors}">
+      <TextBlock Text="Upload both OPS and AoR data to generate a report" Foreground="#9aa4b8"
+                 FontSize="12" TextAlignment="Center" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer IsVisible="{Binding HasOpsAndAors}">
+      <StackPanel Spacing="14">
+
+        <!-- Header: export -->
+        <StackPanel Spacing="8">
+          <TextBlock FontSize="11" Foreground="#9aa4b8">
+            <Run Text="Geozone Report (" /><Run Text="{Binding AorCount}" /><Run Text=" AoRs)" />
+          </TextBlock>
+          <TextBlock Text="Exports match counts for every AoR against the current OPS filters." FontSize="11"
+                     Foreground="#6b7488" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+            <Button Grid.Column="0" Name="ExportJsonButton" Content="Export JSON" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
+            <Button Grid.Column="1" Name="ExportXlsxButton" Content="Export XLSX" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+          </Grid>
+        </StackPanel>
+
+        <!-- AoR picker: search + list (proven pattern, avoids an unverified combobox control) -->
+        <StackPanel Spacing="6">
+          <TextBlock Text="Area of Responsibility" FontSize="11" Foreground="#9aa4b8" />
+          <TextBlock Text="{Binding SelectedAor.DisplayLabel}" FontSize="12" FontWeight="SemiBold"
+                     IsVisible="{Binding HasSelectedAor}" />
+          <TextBox PlaceholderText="Search AoRs..." Text="{Binding AorSearchQuery}" />
+          <ItemsControl ItemsSource="{Binding AorOptions}" MaxHeight="180">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReportAorOptionViewModel">
+                <Border Padding="8,6" CornerRadius="6" Cursor="Hand" Tag="{Binding}" Tapped="AorOption_Tapped">
+                  <TextBlock Text="{Binding DisplayLabel}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <TextBlock Text="Select an AoR above, or click one on the map, to see the flight plans inside it."
+                   Foreground="#6b7488" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0"
+                   IsVisible="{Binding !HasSelectedAor}" />
+
+        <StackPanel Spacing="10" IsVisible="{Binding HasSelectedAor}">
+
+          <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8" Padding="14">
+            <StackPanel Spacing="2">
+              <TextBlock Text="{Binding SelectedAor.Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding MatchCount}" FontSize="24" FontWeight="Bold" />
+              <TextBlock Text="flight plans in this area within the selected filters" FontSize="11" Foreground="#9aa4b8"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="No flight plans intersect this area in the selected filters." Foreground="#6b7488"
+                     FontSize="11" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
+                     IsVisible="{Binding HasNoMatches}" />
+
+          <ItemsControl ItemsSource="{Binding MatchingOps}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:OpsRowViewModel">
+                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
+                        Padding="12" Margin="0,0,0,8">
+                  <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8" />
+                    </Grid>
+                    <TextBlock Text="{Binding OperationPlanId}" FontSize="11" Foreground="#6b7488" FontFamily="monospace"
+                               TextTrimming="CharacterEllipsis" />
+                    <Grid ColumnDefinitions="*,*">
+                      <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}" FontSize="11" Foreground="#9aa4b8" />
+                      <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="11" Foreground="#9aa4b8" HorizontalAlignment="Right" />
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </Grid>
+
+</UserControl>

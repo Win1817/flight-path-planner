@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FlightPathPlanner.ViewModels"
+        xmlns:views="using:FlightPathPlanner.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="FlightPathPlanner.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="UAS Tool">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid ColumnDefinitions="380,*">
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="#0f1420" BorderBrush="#232a3a" BorderThickness="0,0,1,0">
+            <DockPanel>
+
+                <!-- Header -->
+                <StackPanel DockPanel.Dock="Top" Margin="16,16,16,8" Spacing="2">
+                    <TextBlock Text="UAS Tool" FontSize="18" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock Text="UAV Flight Plan Viewer" FontSize="12" Foreground="#9aa4b8" />
+                    <Border Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
+                            Padding="10,8" Margin="0,8,0,0"
+                            IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Tabs -->
+                <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="12,4,12,8">
+                    <Button Content="OPS" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Ops}" Margin="2" />
+                    <Button Content="AoRs" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Aors}" Margin="2" />
+                    <Button Content="Report" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Report}" Margin="2" />
+                    <Button Content="Lookup" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Lookup}" Margin="2" />
+                </UniformGrid>
+
+                <!-- Tab content: each tab view manages its own internal scrolling/docked footer.
+                     IsVisible stays on an outer wrapper (MainViewModel-scoped) so it isn't
+                     affected by the inner DataContext override (OpsTabViewModel-scoped). -->
+                <Panel Margin="12,0,12,12">
+                    <ContentControl Content="{Binding OpsTab}"
+                                    IsVisible="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Ops}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:OpsTabViewModel">
+                                <views:OpsTabView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                    <ContentControl Content="{Binding AorTab}"
+                                    IsVisible="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Aors}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:AorTabViewModel">
+                                <views:AorTabView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                    <ContentControl Content="{Binding ReportTab}"
+                                    IsVisible="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Report}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:ReportTabViewModel">
+                                <views:ReportTabView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                    <ContentControl Content="{Binding LookupTab}"
+                                    IsVisible="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Lookup}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:LookupTabViewModel">
+                                <views:LookupTabView />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Panel>
+            </DockPanel>
+        </Border>
+
+        <!-- Map -->
+        <views:MapView Grid.Column="1" Name="Map" />
+    </Grid>
+
+</Window>

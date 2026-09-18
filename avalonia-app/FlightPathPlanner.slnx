@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FlightPathPlanner.Tests/FlightPathPlanner.Tests.csproj" />
+  <Project Path="FlightPathPlanner/FlightPathPlanner.csproj" />
+</Solution>

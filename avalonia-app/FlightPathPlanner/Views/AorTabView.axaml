@@ -1,0 +1,163 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="380"
+             x:Class="FlightPathPlanner.Views.AorTabView"
+             x:DataType="vm:AorTabViewModel">
+
+  <DockPanel>
+
+    <!-- Upload -->
+    <Border DockPanel.Dock="Top" Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
+            CornerRadius="8" Padding="16" Margin="0,0,0,8">
+      <StackPanel Spacing="6" HorizontalAlignment="Center">
+        <Button Name="UploadButton" Content="Upload AoR JSON" HorizontalAlignment="Center" Click="UploadButton_Click" />
+        <TextBlock Text="{Binding UploadedFileName}" FontSize="11" Foreground="#9aa4b8"
+                   HorizontalAlignment="Center" IsVisible="{Binding UploadedFileName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
+            Padding="10,8" Margin="0,0,0,8"
+            IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Footer: selection summary + export/delete -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="#232a3a" BorderThickness="0,1,0,0" Padding="0,8,0,0"
+            IsVisible="{Binding HasSelection}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="Total Selected Area" Foreground="#9aa4b8" FontSize="12" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding TotalSelectedAreaDisplay}" FontWeight="SemiBold" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+          <Button Grid.Column="0" Name="ExportJsonButton" Content="Export JSON" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
+          <Button Grid.Column="1" Name="ExportXlsxButton" Content="Export XLSX" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+        </Grid>
+        <Button Content="Delete Selected" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Background="#7f1d1d" Command="{Binding DeleteSelectedCommand}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Details panel for the active AoR. IsVisible stays on the outer element (AorTabViewModel-
+         scoped); the DataContext override to the row only happens on the inner Border. -->
+    <Border DockPanel.Dock="Bottom" IsVisible="{Binding ActiveAor, Converter={x:Static ObjectConverters.IsNotNull}}">
+     <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
+            CornerRadius="8" Padding="14" Margin="0,8,0,0" MaxHeight="420"
+            DataContext="{Binding ActiveAor}">
+      <ScrollViewer x:DataType="vm:AorRowViewModel">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                    Click="CloseDetailsButton_Click" />
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Designator" Foreground="#9aa4b8" FontSize="12" />
+            <TextBlock Grid.Column="1" Text="{Binding Designator}" FontSize="12" FontFamily="monospace" />
+          </Grid>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Area" Foreground="#9aa4b8" FontSize="12" />
+            <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="12" />
+          </Grid>
+
+          <Border Background="#3a2a12" BorderBrush="#5a4a22" BorderThickness="1" CornerRadius="12"
+                  Padding="8,2" HorizontalAlignment="Left" IsVisible="{Binding HasRestriction}">
+            <TextBlock Text="{Binding RestrictionDisplay}" FontSize="10" FontWeight="SemiBold" Foreground="#fbbf24" />
+          </Border>
+
+          <Border Background="#1f2635" CornerRadius="8" Padding="8" IsVisible="{Binding HasMessage}">
+            <TextBlock Text="{Binding Message}" FontSize="11" Foreground="#c3cad9" TextWrapping="Wrap" />
+          </Border>
+
+          <StackPanel Spacing="4" IsVisible="{Binding HasApplicability}">
+            <TextBlock Text="APPLICABILITY" FontSize="10" Foreground="#6b7488" />
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEffectiveTimeBegin}">
+              <TextBlock Grid.Column="0" Text="Start" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding EffectiveTimeBeginDisplay}" FontSize="11" FontFamily="monospace" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasEffectiveTimeEnd}">
+              <TextBlock Grid.Column="0" Text="End" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding EffectiveTimeEndDisplay}" FontSize="11" FontFamily="monospace" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Text="VERTICAL LIMITS" FontSize="10" Foreground="#6b7488" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Lower Limit" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding LowerLimitDisplay}" FontSize="11" FontFamily="monospace" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Upper Limit" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding UpperLimitDisplay}" FontSize="11" FontFamily="monospace" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Vertical Reference" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding VerticalReferenceType}" FontSize="11" FontFamily="monospace" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="4" IsVisible="{Binding HasAutoReject}">
+            <TextBlock Text="SETTINGS" FontSize="10" Foreground="#6b7488" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Text="Auto-reject Flights" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Grid.Column="1" Text="{Binding AutoRejectDisplay}" FontSize="11" FontWeight="SemiBold" />
+            </Grid>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+     </Border>
+    </Border>
+
+    <!-- Scrollable main content -->
+    <ScrollViewer>
+      <StackPanel Spacing="10">
+
+        <TextBox PlaceholderText="Search AoRs by name, designator, message..." Text="{Binding SearchQuery}" />
+
+        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAors}">
+          <TextBlock Grid.Column="0" Text="AoRs" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="4,0"
+                  Background="Transparent" Command="{Binding ToggleSelectAllCommand}" />
+        </Grid>
+
+        <TextBlock Text="No AoRs match the current search" Foreground="#9aa4b8" HorizontalAlignment="Center"
+                   Margin="0,20,0,0" IsVisible="{Binding HasNoFilteredAors}" />
+        <TextBlock Text="Upload a JSON file to get started" Foreground="#6b7488" FontSize="11" HorizontalAlignment="Center"
+                   IsVisible="{Binding !HasAors}" />
+
+        <ItemsControl ItemsSource="{Binding FilteredAors}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AorRowViewModel">
+              <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
+                      Padding="12" Margin="0,0,0,8">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" Margin="0,0,4,0" />
+                  <StackPanel Grid.Column="1" Spacing="2" Cursor="Hand" Tag="{Binding}" Tapped="AorRow_Tapped">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Ellipse Width="10" Height="10" Fill="{Binding Color}" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Designator}" FontSize="11" Foreground="#6b7488" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                          Tag="{Binding}" Click="DeleteAorButton_Click" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

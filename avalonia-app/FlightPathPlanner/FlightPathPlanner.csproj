@@ -1,0 +1,65 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
+    <!-- Map assets need to exist as real files on disk (the WebView navigates to a file:// path),
+         not embedded avares:// resources, so they're excluded from AvaloniaResource below. -->
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\map\**" />
+    <Content Include="Assets\map\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="CefGlue.Next.Avalonia" Version="152.7977.83" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="NetTopologySuite" Version="2.6.0" />
+  </ItemGroup>
+
+  <!--
+    The CEF NuGet packages (cef.runtime.*/chromiumembeddedframework.runtime.*) ship a copy
+    target that only fires when OutputType == 'Exe'. We use WinExe (so Windows launches
+    without a console window), so that vendor target never runs. This replaces it, working
+    for any OutputType and for both of CEF's inconsistent package-name conventions
+    (chromiumembeddedframework.runtime.win-* on Windows, cef.runtime.* elsewhere).
+  -->
+  <PropertyGroup>
+    <_CefPackageFolder Condition="$(RuntimeIdentifier.StartsWith('win'))">chromiumembeddedframework.runtime.$(RuntimeIdentifier)</_CefPackageFolder>
+    <_CefPackageFolder Condition="'$(_CefPackageFolder)' == '' AND '$(RuntimeIdentifier)' != ''">cef.runtime.$(RuntimeIdentifier)</_CefPackageFolder>
+    <!--
+      Resolve the single installed package-version directory directly (rather than a "*"
+      glob segment) so it can never leak into %(RecursiveDir) below — the version folder must
+      NOT appear in the copied-to path, only the structure under CEF/<rid>/ should.
+    -->
+    <_CefVersionDir Condition="'$(_CefPackageFolder)' != '' AND Exists('$(NuGetPackageRoot)$(_CefPackageFolder)')">$([System.IO.Directory]::GetDirectories('$(NuGetPackageRoot)$(_CefPackageFolder)')[0])</_CefVersionDir>
+  </PropertyGroup>
+
+  <Target Name="CopyCefRuntimeFiles" AfterTargets="Build;Publish" Condition="'$(_CefVersionDir)' != ''">
+    <ItemGroup>
+      <_CefNativeFiles Include="$(_CefVersionDir)\runtimes\$(RuntimeIdentifier)\native\*.*" />
+      <_CefResourceFiles Include="$(_CefVersionDir)\CEF\$(RuntimeIdentifier)\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CefNativeFiles)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_CefResourceFiles)"
+          DestinationFiles="@(_CefResourceFiles->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:svc="using:FlightPathPlanner.Services"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="380"
+             x:Class="FlightPathPlanner.Views.LookupTabView"
+             x:DataType="vm:LookupTabViewModel">
+
+  <Grid>
+
+    <!-- Empty state: no OPS data loaded yet -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" Margin="20"
+                IsVisible="{Binding !HasOps}">
+      <TextBlock Text="Upload OPS data to look up flight plans by location" Foreground="#9aa4b8"
+                 FontSize="12" TextAlignment="Center" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer IsVisible="{Binding HasOps}">
+      <StackPanel Spacing="14">
+
+        <!-- Location search -->
+        <StackPanel Spacing="6">
+          <TextBlock Text="Location" FontSize="11" Foreground="#9aa4b8" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <TextBox Grid.Column="0" Name="QueryTextBox" Text="{Binding Query}"
+                     PlaceholderText="Address, city, or lat:long" KeyDown="QueryTextBox_KeyDown" />
+            <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}"
+                    IsEnabled="{Binding CanSearch}" />
+          </Grid>
+          <TextBlock Text="e.g. &quot;Iloilo City&quot; or &quot;10.7202, 122.5621&quot;" FontSize="10" Foreground="#6b7488" />
+        </StackPanel>
+
+        <!-- Radius -->
+        <StackPanel Spacing="6">
+          <TextBlock Text="Radius" FontSize="11" Foreground="#9aa4b8" />
+          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="4">
+            <TextBox Grid.Column="0" Text="{Binding RadiusKmText}" Width="70" />
+            <TextBlock Grid.Column="1" Text="km" VerticalAlignment="Center" Foreground="#9aa4b8" FontSize="12" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding RadiusPresets}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RadiusPresetOptionViewModel">
+                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="12"
+                        Padding="8,3" Margin="0,0,4,4" Cursor="Hand" Tag="{Binding}" Tapped="RadiusPreset_Tapped">
+                  <TextBlock Text="{Binding Label}" FontSize="11" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <Border Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
+                Padding="10,8" IsVisible="{Binding HasError}">
+          <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Spacing="6" IsVisible="{Binding HasCandidates}">
+          <TextBlock Text="Multiple matches — pick one" FontSize="11" Foreground="#9aa4b8" />
+          <ItemsControl ItemsSource="{Binding Candidates}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="svc:GeocodeResult">
+                <Border Background="#151a28" CornerRadius="6" Padding="8,6" Margin="0,0,0,4"
+                        Cursor="Hand" Tag="{Binding}" Tapped="Candidate_Tapped">
+                  <TextBlock Text="{Binding DisplayName}" FontSize="11" TextWrapping="Wrap" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Spacing="10" IsVisible="{Binding HasCenter}">
+
+          <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8" Padding="14">
+            <StackPanel Spacing="2">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Center.DisplayName}" FontWeight="SemiBold" FontSize="13"
+                           TextTrimming="CharacterEllipsis" />
+                <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                        Command="{Binding ClearCommand}" />
+              </Grid>
+              <TextBlock Text="{Binding CenterCoordinatesDisplay}" FontSize="11" Foreground="#6b7488" FontFamily="monospace" />
+              <TextBlock Text="{Binding MatchCount}" FontSize="24" FontWeight="Bold" />
+              <TextBlock Text="{Binding RadiusSummaryDisplay}" FontSize="11" Foreground="#9aa4b8" />
+            </StackPanel>
+          </Border>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding HasMatches}">
+            <Button Grid.Column="0" Content="Export JSON" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
+            <Button Grid.Column="1" Content="Export XLSX" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+          </Grid>
+
+          <TextBlock Text="No flight plans within this radius." Foreground="#6b7488" FontSize="11"
+                     TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" IsVisible="{Binding HasNoMatches}" />
+
+          <ItemsControl ItemsSource="{Binding MatchingOps}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:OpsRowViewModel">
+                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
+                        Padding="12" Margin="0,0,0,8">
+                  <StackPanel Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8" />
+                    </Grid>
+                    <TextBlock Text="{Binding OperationPlanId}" FontSize="11" Foreground="#6b7488" FontFamily="monospace"
+                               TextTrimming="CharacterEllipsis" />
+                    <Grid ColumnDefinitions="*,*">
+                      <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}" FontSize="11" Foreground="#9aa4b8" />
+                      <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="11" Foreground="#9aa4b8" HorizontalAlignment="Right" />
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </Grid>
+
+</UserControl>

@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="380"
+             x:Class="FlightPathPlanner.Views.OpsTabView"
+             x:DataType="vm:OpsTabViewModel">
+
+  <DockPanel>
+
+    <!-- Upload -->
+    <Border DockPanel.Dock="Top" Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
+            CornerRadius="8" Padding="16" Margin="0,0,0,8">
+      <StackPanel Spacing="6" HorizontalAlignment="Center">
+        <Button Name="UploadButton" Content="Upload OPS JSON" HorizontalAlignment="Center" Click="UploadButton_Click" />
+        <TextBlock Text="{Binding UploadedFileName}" FontSize="11" Foreground="#9aa4b8"
+                   HorizontalAlignment="Center" IsVisible="{Binding UploadedFileName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
+            Padding="10,8" Margin="0,0,0,8"
+            IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Footer: selection summary + export/delete -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="#232a3a" BorderThickness="0,1,0,0" Padding="0,8,0,0"
+            IsVisible="{Binding HasSelection}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="Total Selected Area" Foreground="#9aa4b8" FontSize="12" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding TotalSelectedAreaDisplay}" FontWeight="SemiBold" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+          <Button Grid.Column="0" Name="ExportJsonButton" Content="Export JSON" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
+          <Button Grid.Column="1" Name="ExportXlsxButton" Content="Export XLSX" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+        </Grid>
+        <Button Content="Delete Selected" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                Background="#7f1d1d" Command="{Binding DeleteSelectedCommand}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Details panel for the active op. IsVisible stays on the outer element (OpsTabViewModel-
+         scoped); the DataContext override to the row only happens on the inner Border, so the
+         two bindings don't fight over which type the compiled binding is checked against. -->
+    <Border DockPanel.Dock="Bottom" IsVisible="{Binding ActiveOp, Converter={x:Static ObjectConverters.IsNotNull}}">
+     <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
+            CornerRadius="8" Padding="14" Margin="0,8,0,0" MaxHeight="360"
+            DataContext="{Binding ActiveOp}">
+      <ScrollViewer x:DataType="vm:OpsRowViewModel">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                    Click="CloseDetailsButton_Click" />
+          </Grid>
+          <TextBlock Text="{Binding Status}" Foreground="#9aa4b8" FontSize="11" />
+          <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="12" Foreground="#c3cad9"
+                     IsVisible="{Binding HasDescription}" />
+          <TextBlock Text="{Binding OperationPlanId}" FontFamily="monospace" FontSize="11" Foreground="#6b7488" />
+
+          <StackPanel Spacing="2" IsVisible="{Binding HasStatusInfo}">
+            <TextBlock Text="Status" FontSize="10" Foreground="#6b7488" />
+            <TextBlock Text="{Binding StateAndClosureReasonDisplay}" FontSize="12" />
+          </StackPanel>
+
+          <StackPanel Spacing="2" IsVisible="{Binding HasOperator}">
+            <TextBlock Text="Operator" FontSize="10" Foreground="#6b7488" />
+            <TextBlock Text="{Binding Operator}" FontSize="12" FontFamily="monospace" />
+          </StackPanel>
+
+          <StackPanel Spacing="2">
+            <TextBlock Text="Time (UTC)" FontSize="10" Foreground="#6b7488" />
+            <TextBlock FontSize="12" FontFamily="monospace" Text="{Binding StartTimeFullDisplay}" />
+            <TextBlock FontSize="12" FontFamily="monospace" Text="{Binding EndTimeFullDisplay}" />
+          </StackPanel>
+
+          <StackPanel Spacing="2" IsVisible="{Binding HasAltitudeInfo}">
+            <TextBlock Text="Altitude" FontSize="10" Foreground="#6b7488" />
+            <TextBlock Text="{Binding AltitudeRangeDisplay}" FontSize="12" />
+          </StackPanel>
+
+          <Grid ColumnDefinitions="*,*">
+            <StackPanel Grid.Column="0" Spacing="2">
+              <TextBlock Text="Area" FontSize="10" Foreground="#6b7488" />
+              <TextBlock Text="{Binding AreaDisplay}" FontSize="12" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Text="Zones" FontSize="10" Foreground="#6b7488" />
+              <TextBlock Text="{Binding ZoneCount}" FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </ScrollViewer>
+     </Border>
+    </Border>
+
+    <!-- Scrollable main content -->
+    <ScrollViewer>
+      <StackPanel Spacing="10">
+
+        <TextBox PlaceholderText="Search OPS by title, ID, operator..." Text="{Binding SearchQuery}" />
+
+        <StackPanel Spacing="6" IsVisible="{Binding HasClosureReasons}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Closure Reason" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="4,0" Background="Transparent"
+                    Command="{Binding ClearClosureReasonsCommand}" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding ClosureReasonChips}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ClosureReasonChipViewModel">
+                <ToggleButton Content="{Binding Reason}" IsChecked="{Binding IsSelected}" Margin="0,0,4,4"
+                              Padding="8,2" CornerRadius="12" FontSize="11" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Spacing="6" IsVisible="{Binding HasOps}">
+          <TextBlock Text="Timeframe" FontSize="11" Foreground="#9aa4b8" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="From" FontSize="11" Foreground="#6b7488" Width="32" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding TimeframeFrom}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="To" FontSize="11" Foreground="#6b7488" Width="32" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding TimeframeTo}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasOps}">
+          <TextBlock Grid.Column="0" Text="OPS" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="4,0"
+                  Background="Transparent" Command="{Binding ToggleSelectAllCommand}" />
+        </Grid>
+
+        <TextBlock Text="No OPS match the current filters" Foreground="#9aa4b8" HorizontalAlignment="Center"
+                   Margin="0,20,0,0" IsVisible="{Binding HasNoFilteredOps}" />
+        <TextBlock Text="Upload a JSON file to get started" Foreground="#6b7488" FontSize="11" HorizontalAlignment="Center"
+                   IsVisible="{Binding !HasOps}" />
+
+        <ItemsControl ItemsSource="{Binding FilteredOps}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:OpsRowViewModel">
+              <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
+                      Padding="12" Margin="0,0,0,8">
+                <StackPanel Spacing="6">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" Margin="0,0,4,0" />
+                    <StackPanel Grid.Column="1" Spacing="2" Cursor="Hand" Tag="{Binding}" Tapped="OpRow_Tapped">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding OperationPlanId}" FontSize="11" Foreground="#6b7488" TextTrimming="CharacterEllipsis" FontFamily="monospace" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8"
+                               VerticalAlignment="Top" Margin="4,0" />
+                    <Button Grid.Column="3" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                            Tag="{Binding}" Click="DeleteOpButton_Click" />
+                  </Grid>
+                  <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#9aa4b8"
+                             TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                             IsVisible="{Binding HasDescription}" />
+                  <Grid ColumnDefinitions="*,*">
+                    <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}" FontSize="11" Foreground="#9aa4b8" />
+                    <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="11" Foreground="#9aa4b8" HorizontalAlignment="Right" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>
