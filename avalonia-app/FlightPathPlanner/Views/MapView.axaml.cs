@@ -53,7 +53,7 @@ public partial class MapView : UserControl
             _cef.LoadError += (_, args) => Log($"load error: {args.ErrorText} {args.FailedUrl}");
             _cef.LoadEnd += (_, _) => Dispatcher.UIThread.Post(OnPageReady);
 
-            var mapHtmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "map", "index.html");
+            var mapHtmlPath = Path.Combine(FlightPathPlanner.Services.MapAssets.EnsureExtracted(), "index.html");
             _cef.Address = new Uri(mapHtmlPath).AbsoluteUri;
             RootGrid.Children.Add(_cef);
         }

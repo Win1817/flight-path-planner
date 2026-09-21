@@ -105,10 +105,12 @@ Versions are taken from `avalonia-app/FlightPathPlanner/FlightPathPlanner.csproj
     │   │   ├── MapGeoJson.cs               # Builds the FeatureCollection the map page consumes
     │   │   ├── GeocodeService.cs           # Coordinate parsing + Nominatim lookup
     │   │   ├── LocalStorageService.cs      # data/ folder, archive, restore, delete
+    │   │   ├── MapAssets.cs                # Unpacks the embedded map page for the web view
     │   │   └── Notifier.cs                 # User-feedback events (success/info/warning/error)
     │   ├── ViewModels/                     # MainViewModel and per-tab view models
     │   ├── Views/                          # Window shell, tab views, SavedTabView/SavedFilesPanel, MapView, WebView2Host, FileDialogs
-    │   ├── Assets/map/                     # index.html, map.js, bundled MapLibre GL JS/CSS
+    │   ├── Assets/luna.ico                 # Application/window icon
+    │   ├── Assets/map/                     # index.html, map.js, bundled MapLibre GL JS/CSS (embedded in the assembly)
     │   ├── SetStackSize.targets            # Windows build step (see Known Limitations)
     │   └── FlightPathPlanner.csproj
     └── FlightPathPlanner.Tests/            # xUnit tests
@@ -143,7 +145,7 @@ There are no configuration files. The only environment variable read by the code
 
 Other constants live in code:
 
-- Basemap tile URLs and attribution: constants at the top of `Assets/map/map.js`.
+- Basemap tile URLs and attribution: constants at the top of `Assets/map/map.js` (embedded; rebuild after editing).
 - Data folder: see [Local Data](#local-data).
 
 ## Running the Application
@@ -164,23 +166,31 @@ dotnet run --project FlightPathPlanner
 
 ### Production build (portable)
 
-Self-contained single-file publish, run from `avalonia-app/`. Replace `<rid>` with `win-x64`, `linux-x64`, `osx-x64` or `osx-arm64`:
+**Windows `.exe`** (one file, icon included, no installer, no .NET needed on the target machine). From `avalonia-app/`:
+
+```powershell
+.\publish-windows.ps1
+```
+
+This runs the publish command below for `win-x64` and writes `dist\win-x64\FlightPathPlanner.exe` (about 52 MB). The map page is embedded in the executable and is unpacked on first start to `%LOCALAPPDATA%\UasTool\map-assets\<build id>` (older builds' folders are removed). The file icon (`Assets/luna.ico`, 16-256 px) is embedded via `ApplicationIcon`.
+
+**Any platform** — self-contained single-file publish, run from `avalonia-app/`. Replace `<rid>` with `win-x64`, `linux-x64`, `osx-x64` or `osx-arm64`:
 
 ```bash
 dotnet publish FlightPathPlanner -c Release -r <rid> --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist/<rid>
 ```
 
-Measured output when publishing all four runtimes from a Linux host:
+Measured output when publishing from a Linux host (before the map page was embedded; Linux/macOS sizes are dominated by Chromium):
 
 | Runtime | Output size | Contents |
 | --- | --- | --- |
-| `win-x64` | ~51 MB | `FlightPathPlanner.exe` and `Assets/map/` (4 files) — 5 files total |
-| `linux-x64` | ~396 MB | Executable, `Assets/`, `Resources/`, CEF `.so` files and support files (238 files) |
-| `osx-x64` | ~385 MB | Executable, `Assets/`, CEF framework and helper `.app` bundles (250 files) |
-| `osx-arm64` | ~373 MB | Same layout as `osx-x64` (250 files) |
+| `win-x64` | ~52 MB | `FlightPathPlanner.exe` only |
+| `linux-x64` | ~396 MB | Executable, `Resources/`, CEF `.so` files and support files (~238 files) |
+| `osx-x64` | ~385 MB | Executable, CEF framework and helper `.app` bundles (~250 files) |
+| `osx-arm64` | ~373 MB | Same layout as `osx-x64` (~250 files) |
 
-Keep the `Assets/` folder next to the executable: the map page is loaded from disk. All four publishes completed from a Linux host; running the published output on each OS has **not been verified**.
+The published Windows executable was inspected for its icon and subsystem (Windows GUI) but has **not been run** on Windows by the author of this document. Running the published output of the other targets has **not been verified**. `dist/` is git-ignored.
 
 ### Production run
 
@@ -263,7 +273,7 @@ Confirmed from the code:
 
 - The app has no network listener and no accounts; input is local JSON files chosen by the user. Parsing failures are caught and reported rather than crashing.
 - Text shown in map popups is HTML-escaped (`escapeHtml` in `map.js`).
-- On Windows, the map page is served from a WebView2 virtual host (`appassets.local`) mapped to the `Assets/map` folder only.
+- On Windows, the map page is served from a WebView2 virtual host (`appassets.local`) mapped to the unpacked map-page folder only.
 - Saved-file operations reject names containing path separators or `..` and re-derive paths from the category and name.
 - **Chromium sandbox is disabled** for the embedded browser on Linux/macOS (`NoSandbox = true` in `Program.cs`). It is loaded only with the bundled map page and tile images, but this is a deliberate reduction in isolation.
 - Address searches send the typed text to Nominatim.
@@ -277,8 +287,8 @@ No dependency scanning, secret management or audit logging is configured.
 **Solution** — Install the runtime from Microsoft's WebView2 page; the rest of the app works without it.
 
 **Problem** — The map is blank or shows a JavaScript error text at its top-left.
-**Cause** — The page failed to start (for example WebGL unavailable) or `Assets/map` is missing next to the executable.
-**Solution** — Check that `Assets/map` sits beside the executable and read `map.log`. To use the tabs without the map, set `FPP_NO_MAP=1`.
+**Cause** — The page failed to start (for example WebGL unavailable) or the map page could not be unpacked to `%LOCALAPPDATA%\UasTool\map-assets`.
+**Solution** — Read `map.log` and check that folder is writable. To use the tabs without the map, set `FPP_NO_MAP=1`.
 
 **Problem** — The map is dark with no basemap.
 **Cause** — No internet access, or the tile provider is unreachable/blocked.
@@ -322,7 +332,6 @@ Incomplete features
 Deployment
 - Notifications appear over the sidebar only: the map is a native web view and cannot be drawn over.
 - Linux and macOS packages are roughly 370–400 MB because they bundle Chromium.
-- The `Assets/` folder cannot currently be embedded in the single-file executable.
 
 ## Roadmap
 

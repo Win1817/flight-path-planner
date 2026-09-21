@@ -12,9 +12,10 @@ public partial class ToastCenterViewModel : ViewModelBase
 
     public ObservableCollection<ToastViewModel> Toasts { get; } = new();
 
-    public ToastCenterViewModel()
+    /// <param name="listenToNotifier">Subscribe to the global <see cref="Notifier"/>. Tests that need an isolated queue pass false.</param>
+    public ToastCenterViewModel(bool listenToNotifier = true)
     {
-        Notifier.Posted += Show;
+        if (listenToNotifier) Notifier.Posted += Show;
     }
 
     public void Show(NotificationKind kind, string message)

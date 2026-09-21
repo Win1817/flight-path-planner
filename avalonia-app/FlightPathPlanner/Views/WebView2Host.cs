@@ -77,7 +77,7 @@ public sealed class WebView2Host : NativeControlHost
             var web = _controller.CoreWebView2;
             web.Settings.AreDefaultContextMenusEnabled = false;
             web.SetVirtualHostNameToFolderMapping("appassets.local",
-                Path.Combine(AppContext.BaseDirectory, "Assets", "map"), CoreWebView2HostResourceAccessKind.Allow);
+                FlightPathPlanner.Services.MapAssets.EnsureExtracted(), CoreWebView2HostResourceAccessKind.Allow);
             web.WebMessageReceived += (_, e) => MessageReceived?.Invoke(e.TryGetWebMessageAsString());
             web.Navigate("https://appassets.local/index.html");
         }

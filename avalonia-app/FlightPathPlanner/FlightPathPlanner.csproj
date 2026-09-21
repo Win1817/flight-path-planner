@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- File icon of the published .exe (also used for the window / taskbar). -->
+    <ApplicationIcon>Assets\luna.ico</ApplicationIcon>
     <!-- CefGlue's optional post-build stack-size bump needs Visual Studio's editbin.exe; skip it so the
          project builds on Windows machines without VS installed. -->
     <IsEditbinEnabled>false</IsEditbinEnabled>
@@ -31,12 +33,10 @@
 
   <ItemGroup>
     <Folder Include="Models\" />
-    <!-- Map assets need to exist as real files on disk (the WebView navigates to a file:// path),
-         not embedded avares:// resources, so they're excluded from AvaloniaResource below. -->
+    <!-- The map page is embedded in the assembly (so the published .exe is a single file) and extracted to the user's
+         local app data at start-up by Services/MapAssets.cs: web views need it as real files on disk. -->
     <AvaloniaResource Include="Assets\**" Exclude="Assets\map\**" />
-    <Content Include="Assets\map\**">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <EmbeddedResource Include="Assets\map\*.*" LogicalName="map/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

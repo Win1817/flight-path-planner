@@ -108,7 +108,7 @@ public sealed class LunaShellTests : IDisposable
     [Fact]
     public void ToastQueue_KeepsNewestThree_AndDismisses()
     {
-        var toasts = new ToastCenterViewModel();
+        var toasts = new ToastCenterViewModel(listenToNotifier: false); // isolated from tests posting concurrently
         for (int i = 1; i <= 5; i++) toasts.Show(NotificationKind.Info, $"toast-queue-{i}");
 
         Assert.Equal(ToastCenterViewModel.MaxVisible, toasts.Toasts.Count);
