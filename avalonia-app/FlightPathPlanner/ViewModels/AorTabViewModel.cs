@@ -15,6 +15,13 @@ public partial class AorTabViewModel : ViewModelBase
 {
     private List<ParsedAor> _allAors = new();
 
+    public AorTabViewModel(LocalStorageService? storage = null)
+    {
+        SavedFiles = new SavedFilesViewModel(storage, StorageCategory.Aor, (json, name) => LoadFromJson(json, name, persist: false));
+    }
+
+    public SavedFilesViewModel SavedFiles { get; }
+
     [ObservableProperty]
     public partial ObservableCollection<AorRowViewModel> FilteredAors { get; set; } = new();
 
@@ -45,7 +52,8 @@ public partial class AorTabViewModel : ViewModelBase
         ? $"Deselect all ({SelectedCount}/{FilteredCount})"
         : $"Select all ({SelectedCount}/{FilteredCount})";
 
-    public void LoadFromJson(string json, string fileName)
+    /// <returns>true if the file parsed and was loaded.</returns>
+    public bool LoadFromJson(string json, string fileName, bool persist = true)
     {
         try
         {
@@ -61,12 +69,16 @@ public partial class AorTabViewModel : ViewModelBase
                 : null;
 
             RefreshFilteredAors();
+
+            if (persist) SavedFiles.SaveNew(fileName, json);
+            return true;
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
             _allAors = new List<ParsedAor>();
             RefreshFilteredAors();
+            return false;
         }
     }
 

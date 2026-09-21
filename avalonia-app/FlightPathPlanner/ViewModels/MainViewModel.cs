@@ -22,8 +22,8 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
 
-    public OpsTabViewModel OpsTab { get; } = new();
-    public AorTabViewModel AorTab { get; } = new();
+    public OpsTabViewModel OpsTab { get; }
+    public AorTabViewModel AorTab { get; }
     public ReportTabViewModel ReportTab { get; }
     public LookupTabViewModel LookupTab { get; }
 
@@ -35,9 +35,14 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>Raised when only the highlighted shapes changed (view should call <see cref="BuildHighlightIds"/>).</summary>
     public event Action? MapHighlightsInvalidated;
 
-    public MainViewModel()
+    public MainViewModel() : this(LocalStorageService.CreateDefault()) { }
+
+    /// <param name="storage">Where uploads/exports are kept; null disables local saving (used by tests).</param>
+    public MainViewModel(LocalStorageService? storage)
     {
-        ReportTab = new ReportTabViewModel(OpsTab, AorTab);
+        OpsTab = new OpsTabViewModel(storage);
+        AorTab = new AorTabViewModel(storage);
+        ReportTab = new ReportTabViewModel(OpsTab, AorTab, storage);
         LookupTab = new LookupTabViewModel(OpsTab);
 
         OpsTab.PropertyChanged += (_, e) => OnTabChanged(e, AppTab.Ops,

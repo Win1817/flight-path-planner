@@ -16,6 +16,14 @@ public partial class OpsTabViewModel : ViewModelBase
 {
     private List<ParsedOps> _allOps = new();
 
+    public OpsTabViewModel(LocalStorageService? storage = null)
+    {
+        SavedFiles = new SavedFilesViewModel(storage, StorageCategory.Ops, (json, name) => LoadFromJson(json, name, persist: false));
+    }
+
+    /// <summary>Uploads are kept in the local data folder; this panel reloads/archives/deletes them.</summary>
+    public SavedFilesViewModel SavedFiles { get; }
+
     [ObservableProperty]
     public partial ObservableCollection<OpsRowViewModel> FilteredOps { get; set; } = new();
 
@@ -55,7 +63,8 @@ public partial class OpsTabViewModel : ViewModelBase
         ? $"Deselect all ({SelectedCount}/{FilteredCount})"
         : $"Select all ({SelectedCount}/{FilteredCount})";
 
-    public void LoadFromJson(string json, string fileName)
+    /// <returns>true if the file parsed and was loaded.</returns>
+    public bool LoadFromJson(string json, string fileName, bool persist = true)
     {
         try
         {
@@ -74,6 +83,9 @@ public partial class OpsTabViewModel : ViewModelBase
 
             RebuildClosureReasonChips();
             RefreshFilteredOps();
+
+            if (persist) SavedFiles.SaveNew(fileName, json);
+            return true;
         }
         catch (Exception ex)
         {
@@ -81,6 +93,7 @@ public partial class OpsTabViewModel : ViewModelBase
             _allOps = new List<ParsedOps>();
             RebuildClosureReasonChips();
             RefreshFilteredOps();
+            return false;
         }
     }
 

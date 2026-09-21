@@ -27,7 +27,7 @@ public class MapGeoJsonTests
 
     private static MainViewModel LoadedViewModel()
     {
-        var vm = new MainViewModel();
+        var vm = new MainViewModel(null);
         vm.OpsTab.LoadFromJson(OpsJson, "ops.json");
         vm.AorTab.LoadFromJson(AorJson, "aor.json");
         return vm;

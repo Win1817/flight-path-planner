@@ -20,14 +20,18 @@ public partial class ReportTabViewModel : ViewModelBase
     private readonly AorTabViewModel _aorTab;
     private List<ReportAorOptionViewModel> _allAorOptions = new();
 
-    public ReportTabViewModel(OpsTabViewModel opsTab, AorTabViewModel aorTab)
+    public ReportTabViewModel(OpsTabViewModel opsTab, AorTabViewModel aorTab, LocalStorageService? storage = null)
     {
+        SavedFiles = new SavedFilesViewModel(storage, StorageCategory.Report);
         _opsTab = opsTab;
         _aorTab = aorTab;
         _opsTab.PropertyChanged += OnOpsTabPropertyChanged;
         _aorTab.PropertyChanged += OnAorTabPropertyChanged;
         RefreshAorOptions();
     }
+
+    /// <summary>Every exported report is also kept in the local data folder.</summary>
+    public SavedFilesViewModel SavedFiles { get; }
 
     [ObservableProperty]
     public partial ObservableCollection<ReportAorOptionViewModel> AorOptions { get; set; } = new();
@@ -139,12 +143,19 @@ public partial class ReportTabViewModel : ViewModelBase
     {
         var rows = BuildExportRows();
         var exportObject = new { comment = $"Total number of geozones: {rows.Count}", data = rows };
-        return JsonSerializer.Serialize(exportObject, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(exportObject, new JsonSerializerOptions { WriteIndented = true });
+        SaveLocalCopy(json);
+        return json;
     }
+
+    private void SaveLocalCopy(string json) =>
+        SavedFiles.SaveNew($"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.json", json);
 
     public byte[] ExportSummaryToXlsxBytes()
     {
         var rows = BuildExportRows();
+        SaveLocalCopy(JsonSerializer.Serialize(
+            new { comment = $"Total number of geozones: {rows.Count}", data = rows }, new JsonSerializerOptions { WriteIndented = true }));
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Report");
         sheet.Cell(1, 1).InsertTable(rows);
