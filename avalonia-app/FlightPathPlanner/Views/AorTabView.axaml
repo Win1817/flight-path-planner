@@ -54,7 +54,7 @@
         <StackPanel Spacing="10">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
-            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
                     Click="CloseDetailsButton_Click" />
           </Grid>
 
@@ -117,14 +117,14 @@
     </Border>
 
     <!-- Scrollable main content -->
-    <ScrollViewer>
+    <ScrollViewer Padding="0,0,14,0">
       <StackPanel Spacing="10">
 
         <TextBox Watermark="Search AoRs by name, designator, message..." Text="{Binding SearchQuery}" />
 
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAors}">
           <TextBlock Grid.Column="0" Text="AoRs" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="4,0"
+          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="8,3"
                   Background="Transparent" Command="{Binding ToggleSelectAllCommand}" />
         </Grid>
 
@@ -147,7 +147,7 @@
                     </StackPanel>
                     <TextBlock Text="{Binding Designator}" FontSize="11" Foreground="#6b7488" TextTrimming="CharacterEllipsis" />
                   </StackPanel>
-                  <Button Grid.Column="2" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                  <Button Grid.Column="2" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
                           Tag="{Binding}" Click="DeleteAorButton_Click" />
                 </Grid>
               </Border>

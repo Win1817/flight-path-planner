@@ -8,7 +8,7 @@
         x:Class="FlightPathPlanner.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="UAS Tool">
+        Title="UAS Tool" Background="#0b0f19">
 
     <Design.DataContext>
         <vm:MainViewModel />
@@ -21,7 +21,7 @@
             <DockPanel>
 
                 <!-- Header -->
-                <StackPanel DockPanel.Dock="Top" Margin="16,16,16,8" Spacing="2">
+                <StackPanel DockPanel.Dock="Top" Margin="16,18,16,12" Spacing="2">
                     <TextBlock Text="UAS Tool" FontSize="18" FontWeight="SemiBold" Foreground="White" />
                     <TextBlock Text="UAV Flight Plan Viewer" FontSize="12" Foreground="#9aa4b8" />
                     <Border Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
@@ -32,12 +32,19 @@
                 </StackPanel>
 
                 <!-- Tabs -->
-                <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="12,4,12,8">
-                    <Button Content="OPS" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Ops}" Margin="2" />
-                    <Button Content="AoRs" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Aors}" Margin="2" />
-                    <Button Content="Report" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Report}" Margin="2" />
-                    <Button Content="Lookup" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Lookup}" Margin="2" />
-                </UniformGrid>
+                <Border DockPanel.Dock="Top" Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
+                        CornerRadius="8" Padding="3" Margin="12,4,12,12">
+                    <UniformGrid Columns="4">
+                        <Button Classes="tab" Content="OPS" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Ops}"
+                                Classes.active="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Ops}}" />
+                        <Button Classes="tab" Content="AoRs" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Aors}"
+                                Classes.active="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Aors}}" />
+                        <Button Classes="tab" Content="Report" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Report}"
+                                Classes.active="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Report}}" />
+                        <Button Classes="tab" Content="Lookup" Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:AppTab.Lookup}"
+                                Classes.active="{Binding ActiveTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:AppTab.Lookup}}" />
+                    </UniformGrid>
+                </Border>
 
                 <!-- Tab content: each tab view manages its own internal scrolling/docked footer.
                      IsVisible stays on an outer wrapper (MainViewModel-scoped) so it isn't

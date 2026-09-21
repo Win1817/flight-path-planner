@@ -2,8 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="FlightPathPlanner.App"
              xmlns:local="using:FlightPathPlanner"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -11,5 +10,65 @@
 
     <Application.Styles>
         <FluentTheme />
+
+        <!-- Buttons: readable light text on a raised dark surface, with visible hover/pressed states. -->
+        <Style Selector="Button">
+            <Setter Property="Foreground" Value="#e6eaf2" />
+            <Setter Property="Background" Value="#1c2333" />
+            <Setter Property="BorderBrush" Value="#2a3247" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#28324a" />
+            <Setter Property="BorderBrush" Value="#3b82f6" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1a2540" />
+        </Style>
+        <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="#586178" />
+        </Style>
+
+        <!-- Sidebar tab buttons; .active is bound from MainViewModel.ActiveTab. -->
+        <Style Selector="Button.tab">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#9aa4b8" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1c2333" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.tab.active /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2563eb" />
+            <Setter Property="BorderBrush" Value="#2563eb" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <!-- Inputs -->
+        <Style Selector="TextBox">
+            <Setter Property="Foreground" Value="#e6eaf2" />
+            <Setter Property="Background" Value="#151a28" />
+            <Setter Property="BorderBrush" Value="#2a3247" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#3b82f6" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#e6eaf2" />
+        </Style>
+        <Style Selector="ToggleButton">
+            <Setter Property="Foreground" Value="#c3cad9" />
+        </Style>
     </Application.Styles>
 </Application>

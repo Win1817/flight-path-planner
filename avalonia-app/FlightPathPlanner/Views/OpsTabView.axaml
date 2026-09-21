@@ -55,7 +55,7 @@
         <StackPanel Spacing="8">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
-            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
                     Click="CloseDetailsButton_Click" />
           </Grid>
           <TextBlock Text="{Binding Status}" Foreground="#9aa4b8" FontSize="11" />
@@ -100,7 +100,7 @@
     </Border>
 
     <!-- Scrollable main content -->
-    <ScrollViewer>
+    <ScrollViewer Padding="0,0,14,0">
       <StackPanel Spacing="10">
 
         <TextBox Watermark="Search OPS by title, ID, operator..." Text="{Binding SearchQuery}" />
@@ -108,7 +108,7 @@
         <StackPanel Spacing="6" IsVisible="{Binding HasClosureReasons}">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Text="Closure Reason" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="4,0" Background="Transparent"
+            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,3" Background="Transparent"
                     Command="{Binding ClearClosureReasonsCommand}" />
           </Grid>
           <ItemsControl ItemsSource="{Binding ClosureReasonChips}">
@@ -140,7 +140,7 @@
 
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasOps}">
           <TextBlock Grid.Column="0" Text="OPS" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="4,0"
+          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="8,3"
                   Background="Transparent" Command="{Binding ToggleSelectAllCommand}" />
         </Grid>
 
@@ -163,7 +163,7 @@
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8"
                                VerticalAlignment="Top" Margin="4,0" />
-                    <Button Grid.Column="3" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                    <Button Grid.Column="3" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
                             Tag="{Binding}" Click="DeleteOpButton_Click" />
                   </Grid>
                   <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#9aa4b8"

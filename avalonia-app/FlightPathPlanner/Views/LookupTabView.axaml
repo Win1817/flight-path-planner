@@ -17,7 +17,7 @@
                  FontSize="12" TextAlignment="Center" TextWrapping="Wrap" />
     </StackPanel>
 
-    <ScrollViewer IsVisible="{Binding HasOps}">
+    <ScrollViewer Padding="0,0,14,0" IsVisible="{Binding HasOps}">
       <StackPanel Spacing="14">
 
         <!-- Location search -->
@@ -82,7 +82,7 @@
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding Center.DisplayName}" FontWeight="SemiBold" FontSize="13"
                            TextTrimming="CharacterEllipsis" />
-                <Button Grid.Column="1" Content="✕" FontSize="11" Padding="4,0" Background="Transparent"
+                <Button Grid.Column="1" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
                         Command="{Binding ClearCommand}" />
               </Grid>
               <TextBlock Text="{Binding CenterCoordinatesDisplay}" FontSize="11" Foreground="#6b7488" FontFamily="monospace" />

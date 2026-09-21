@@ -16,7 +16,7 @@
                  FontSize="12" TextAlignment="Center" TextWrapping="Wrap" />
     </StackPanel>
 
-    <ScrollViewer IsVisible="{Binding HasOpsAndAors}">
+    <ScrollViewer Padding="0,0,14,0" IsVisible="{Binding HasOpsAndAors}">
       <StackPanel Spacing="14">
 
         <!-- Header: export -->
