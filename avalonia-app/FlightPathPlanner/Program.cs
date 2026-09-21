@@ -13,6 +13,9 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash(e.ExceptionObject?.ToString() ?? "unknown");
+        TaskScheduler.UnobservedTaskException += (_, e) => LogCrash("UnobservedTask: " + e.Exception);
+
         try
         {
             InitializeCef();
@@ -23,10 +26,13 @@ sealed class Program
         catch (Exception ex)
         {
             // WinExe has no console, so startup failures would otherwise vanish silently.
-            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), ex.ToString());
+            LogCrash(ex.ToString());
             throw;
         }
     }
+
+    private static void LogCrash(string text) =>
+        File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), $"[{DateTime.Now:O}] {text}{Environment.NewLine}{Environment.NewLine}");
 
     private static void InitializeCef()
     {
