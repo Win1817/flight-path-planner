@@ -35,12 +35,12 @@ public partial class LookupTabView : UserControl
     private async void ExportJsonButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (ViewModel is { } vm)
-            await FileDialogs.SaveJsonAsync(this, "Export Flight Lookup as JSON", $"flight-lookup-{DateTime.UtcNow:yyyy-MM-dd}.json", vm.ExportMatchesToJson);
+            await FileDialogs.SaveJsonAsync(this, "Export Flight Lookup as JSON", $"flight-lookup-{DateTime.UtcNow:yyyy-MM-dd}.json", () => vm.PrepareMatchesJsonExport());
     }
 
     private async void ExportXlsxButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (ViewModel is { } vm)
-            await FileDialogs.SaveXlsxAsync(this, "Export Flight Lookup as XLSX", $"flight-lookup-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", vm.ExportMatchesToXlsxBytes);
+            await FileDialogs.SaveXlsxAsync(this, "Export Flight Lookup as XLSX", $"flight-lookup-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", () => vm.PrepareMatchesXlsxExport());
     }
 }

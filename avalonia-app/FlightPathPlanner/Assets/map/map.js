@@ -1,12 +1,20 @@
 // Ported from src/components/FlightMap.tsx — keep in sync with that file's map setup.
-// Driven by two functions called from C# (via AvaloniaCefBrowser.ExecuteJavaScript):
-//   window.updateMapData(geojsonJsonString)
-//   window.updateHighlights(idsJsonArrayString)
-// and calls back into C# via the registered bridge object:
-//   window.csharpBridge.OnZoneClick(id, dataType)
-//   window.csharpBridge.OnZoneHover(idOrNull)
+// The host (C#) drives this page with JSON messages (window.lunaHost for CEF, the WebView2 message channel on Windows):
+//   {kind:'begin', version, viewportMode, fit, fitBounds, shown, inView, total, anyHighlight, needsViewport}
+//   {kind:'chunk', version, features:[...]}   (zero or more)
+//   {kind:'end',   version}                     -> the assembled features replace the map data in one step
+//   {kind:'highlights', ids:[...]}              -> hovered/active ids
+// and receives:
+//   {kind:'ready'} | {kind:'click'|'hover', id, dataType} | {kind:'viewport', west, south, east, north, zoom}
 
-// Talks to C#: WebView2 (Windows) posts messages; CEF (Linux/macOS) exposes window.csharpBridge.
+function postToHost(obj) {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify(obj));
+  } else if (window.csharpBridge && obj.kind === 'viewport') {
+    window.csharpBridge.OnViewport(obj.west, obj.south, obj.east, obj.north);
+  }
+}
+
 function bridgeCall(kind, id, dataType) {
   if (window.chrome && window.chrome.webview) {
     window.chrome.webview.postMessage(JSON.stringify({ kind: kind, id: id, dataType: dataType }));
@@ -61,8 +69,14 @@ const BASEMAP_ATTRIBUTION = 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap
 let map = null;
 let popup = null;
 let mapLoaded = false;
-let pendingData = null;
-let pendingHighlights = null;
+let hoverIds = [];              // hovered/active item ids sent separately from the data (at most a couple)
+let anyFeatureHighlight = false; // true when the current data carries "hl":1 flags (selection, report matches...)
+let viewportMode = false;        // large dataset: the host sends only what's in view, and we tell it where we are
+let currentVersion = 0;          // newest data update; older chunks are ignored
+let latestBegin = null;
+let featureBuffer = [];
+let queuedMessages = [];         // data messages that arrived before the map finished loading
+let viewportTimer = null;
 
 function initMap() {
   map = new maplibregl.Map({
@@ -102,8 +116,17 @@ function initMap() {
   map.on('load', () => {
     mapLoaded = true;
     ensureLayers();
-    if (pendingData) { applyData(pendingData); pendingData = null; }
-    if (pendingHighlights) { applyHighlights(pendingHighlights); pendingHighlights = null; }
+    applyPaint();
+    const queued = queuedMessages;
+    queuedMessages = [];
+    queued.forEach(handleHostMessage);
+  });
+
+  // In viewport mode the host draws only what is visible, so report every settled camera position (debounced).
+  map.on('moveend', () => {
+    if (!viewportMode) return;
+    clearTimeout(viewportTimer);
+    viewportTimer = setTimeout(reportViewport, 200);
   });
 }
 
@@ -170,48 +193,102 @@ function ensureLayers() {
   });
 }
 
-function applyData(geojson) {
-  const source = map.getSource('ops-zones');
-  source.setData(geojson);
+// ---- Data from the host: begin / chunk... / end, so a big update is several modest messages, not one giant string ----
 
-  const bounds = getBoundsFromGeoJSON(geojson);
-  if (bounds) {
-    map.fitBounds(bounds, { padding: { top: 50, bottom: 50, left: 400, right: 50 }, maxZoom: 15, duration: 1000 });
+function fmt(n) { return Number(n).toLocaleString('en-US'); }
+
+function reportViewport() {
+  if (!map) return;
+  const b = map.getBounds();
+  postToHost({ kind: 'viewport', west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth(), zoom: map.getZoom() });
+}
+
+function updateStatus(begin) {
+  let el = document.getElementById('status');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'status';
+    document.body.appendChild(el);
+  }
+  if (!begin.viewportMode) { el.style.display = 'none'; return; }
+  const inView = begin.inView;
+  el.textContent = inView > begin.shown
+    ? `${fmt(inView)} in view of ${fmt(begin.total)} · drawing the ${fmt(begin.shown)} largest — zoom in to see all`
+    : `${fmt(inView)} in view of ${fmt(begin.total)}`;
+  el.style.display = 'block';
+}
+
+function commitFeatures() {
+  const begin = latestBegin;
+  if (!begin) return;
+  map.getSource('ops-zones').setData({ type: 'FeatureCollection', features: featureBuffer });
+  featureBuffer = [];
+  anyFeatureHighlight = !!begin.anyHighlight;
+  viewportMode = !!begin.viewportMode;
+  applyPaint();
+  updateStatus(begin);
+
+  if (begin.fit && begin.fitBounds) {
+    const [w, s, e, n] = begin.fitBounds;
+    map.fitBounds([[w, s], [e, n]], { padding: 50, maxZoom: 15, duration: 1000 });
+    // The camera may not move (already there); make sure the host still learns the viewport.
+    if (viewportMode) { clearTimeout(viewportTimer); viewportTimer = setTimeout(reportViewport, 1300); }
+  } else if (viewportMode && begin.needsViewport) {
+    reportViewport();
   }
 }
 
+function handleHostMessage(msg) {
+  if (msg.kind === 'highlights') {
+    hoverIds = msg.ids || [];
+    if (mapLoaded) applyPaint();
+    return;
+  }
+  if (!mapLoaded) { queuedMessages.push(msg); return; }
+
+  switch (msg.kind) {
+    case 'begin':
+      if (msg.version < currentVersion) return;
+      currentVersion = msg.version;
+      latestBegin = msg;
+      featureBuffer = [];
+      break;
+    case 'chunk':
+      if (msg.version !== currentVersion) return;
+      for (let i = 0; i < msg.features.length; i++) featureBuffer.push(msg.features[i]);
+      break;
+    case 'end':
+      if (msg.version !== currentVersion) return;
+      commitFeatures();
+      break;
+  }
+}
+
+// Emphasis: features flagged "hl":1 by the host (selection, report matches) plus the hovered/active ids.
 const ZONE_COLOR = ['coalesce', ['get', 'color'], '#888888'];
 
-function applyHighlights(ids) {
-  const hasHighlights = ids.length > 0;
-  const isHighlighted = ['any', ['in', ['get', 'opsId'], ['literal', ids]], ['in', ['get', 'aorId'], ['literal', ids]]];
+function applyPaint() {
+  if (!map || !mapLoaded) return;
+  const hasHighlights = anyFeatureHighlight || hoverIds.length > 0;
+  const clauses = [['==', ['coalesce', ['get', 'hl'], 0], 1]];
+  if (hoverIds.length > 0) {
+    clauses.push(['in', ['to-string', ['coalesce', ['get', 'opsId'], '']], ['literal', hoverIds]]);
+    clauses.push(['in', ['to-string', ['coalesce', ['get', 'aorId'], '']], ['literal', hoverIds]]);
+  }
+  const isHighlighted = ['any', ...clauses];
   map.setPaintProperty('zones-fill', 'fill-opacity', hasHighlights ? ['case', isHighlighted, 0.5, 0.15] : 0.25);
   // Highlighted shapes get a Luna-lavender outline so they stand out from every data colour.
   map.setPaintProperty('zones-outline', 'line-color', hasHighlights ? ['case', isHighlighted, '#C4B5FD', ZONE_COLOR] : ZONE_COLOR);
   map.setPaintProperty('zones-outline', 'line-width', hasHighlights ? ['case', isHighlighted, 3, 1] : 1.5);
 }
 
-// ---- Entry points called from C# ----
+// ---- Entry point for host messages (CEF calls this directly; WebView2 delivers through the listener below) ----
 
-window.updateMapData = function (geojsonJson) {
-  const geojson = JSON.parse(geojsonJson);
-  if (!mapLoaded) { pendingData = geojson; return; }
-  applyData(geojson);
-};
-
-window.updateHighlights = function (idsJson) {
-  const ids = JSON.parse(idsJson);
-  if (!mapLoaded) { pendingHighlights = ids; return; }
-  applyHighlights(ids);
-};
+window.lunaHost = function (text) { handleHostMessage(JSON.parse(text)); };
 
 initMap();
 
 if (window.chrome && window.chrome.webview) {
-  window.chrome.webview.addEventListener('message', function (e) {
-    const message = JSON.parse(e.data);
-    if (message.kind === 'data') window.updateMapData(message.payload);
-    else if (message.kind === 'highlights') window.updateHighlights(message.payload);
-  });
+  window.chrome.webview.addEventListener('message', function (e) { handleHostMessage(JSON.parse(e.data)); });
   window.chrome.webview.postMessage(JSON.stringify({ kind: 'ready' }));
 }

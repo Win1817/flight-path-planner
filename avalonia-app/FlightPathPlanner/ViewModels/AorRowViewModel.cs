@@ -4,12 +4,29 @@ using FlightPathPlanner.Services;
 
 namespace FlightPathPlanner.ViewModels;
 
-public partial class AorRowViewModel(ParsedAor aor) : ViewModelBase
+public partial class AorRowViewModel(ParsedAor aor, Action<AorRowViewModel, bool>? onSelectionChanged = null, bool selected = false) : ViewModelBase
 {
+    private bool _suppressNotification;
+
     public ParsedAor Aor { get; } = aor;
 
+    /// <summary>Selection lives in the tab's selection set (rows are created on demand and discarded on refilter), so this
+    /// property is just a view of it: user changes flow to the set through the callback.</summary>
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public partial bool IsSelected { get; set; } = selected;
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (!_suppressNotification) onSelectionChanged?.Invoke(this, value);
+    }
+
+    /// <summary>Updates the checkbox without echoing back to the selection set (used by "select all").</summary>
+    public void SetSelectedSilently(bool value)
+    {
+        _suppressNotification = true;
+        IsSelected = value;
+        _suppressNotification = false;
+    }
 
     public string Id => Aor.Id;
     public string Name => Aor.Name;

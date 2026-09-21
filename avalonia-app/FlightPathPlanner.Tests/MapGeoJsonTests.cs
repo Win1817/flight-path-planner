@@ -66,7 +66,7 @@ public class MapGeoJsonTests
     }
 
     [Fact]
-    public void ReportTab_WithSelectedAor_ShowsAorPlusIntersectingOpsOnly()
+    public void ReportTab_WithSelectedAor_ShowsAorPlusIntersectingOpsOnly_FlaggedAsHighlighted()
     {
         var vm = LoadedViewModel();
         vm.ActiveTab = AppTab.Report;
@@ -75,8 +75,9 @@ public class MapGeoJsonTests
         var features = Features(vm.BuildMapGeoJson());
 
         Assert.Equal(2, features.Length); // the AoR + OP-1 (OP-2 is far away)
-        Assert.Contains("OP-1", vm.BuildHighlightIds());
-        Assert.DoesNotContain("OP-2", vm.BuildHighlightIds());
+        Assert.All(features, f => Assert.Equal(1, f.GetProperty("properties").GetProperty("hl").GetInt32()));
+        Assert.Contains(features, f => f.GetProperty("properties").TryGetProperty("opsId", out var id) && id.GetString() == "OP-1");
+        Assert.DoesNotContain(features, f => f.GetProperty("properties").TryGetProperty("opsId", out var id) && id.GetString() == "OP-2");
     }
 
     [Fact]
@@ -93,16 +94,19 @@ public class MapGeoJsonTests
     }
 
     [Fact]
-    public void SelectingOpsAndHoveringAreHighlighted()
+    public void SelectedOpsAreFlaggedInTheMapData_AndHoverTravelsAsAnId()
     {
         var vm = LoadedViewModel();
         vm.OpsTab.FilteredOps[1].IsSelected = true;
         vm.HandleMapZoneHovered("OP-1");
 
-        var ids = vm.BuildHighlightIds();
+        var features = Features(vm.BuildMapGeoJson());
+        bool Flagged(string id) => features.Single(f => f.GetProperty("properties").GetProperty("opsId").GetString() == id)
+            .GetProperty("properties").TryGetProperty("hl", out _);
 
-        Assert.Contains("OP-2", ids);
-        Assert.Contains("OP-1", ids);
+        Assert.True(Flagged("OP-2"));   // selected
+        Assert.False(Flagged("OP-1"));  // only hovered
+        Assert.Equal(new[] { "OP-1" }, vm.BuildHighlightIds());
     }
 
     [Fact]

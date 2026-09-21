@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FlightPathPlanner.ViewModels"
              xmlns:controls="using:FlightPathPlanner.Controls"
+             xmlns:views="using:FlightPathPlanner.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="344"
@@ -19,16 +20,26 @@
         <TextBlock Text="{Binding UploadedFileName}" Classes="cardtitle" />
         <TextBlock Text="AoR data" Classes="meta" />
       </StackPanel>
-      <Button Grid.Column="2" Content="Replace" Classes="small" Click="UploadButton_Click" VerticalAlignment="Center"
+      <Button Grid.Column="2" Content="Replace" Classes="small" Click="UploadButton_Click" IsEnabled="{Binding Import.CanStart}" VerticalAlignment="Center"
               AutomationProperties.Name="Upload a different AoR JSON file" />
     </Grid>
 
-    <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" IsVisible="{Binding IsBusy}">
-      <StackPanel Spacing="8">
-        <TextBlock Text="{Binding BusyText}" Classes="secondary" />
-        <ProgressBar IsIndeterminate="True" />
+    <!-- Large-file notice (files of about 40 MB or more), before anything is loaded -->
+    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" BorderBrush="#66A78BFA" IsVisible="{Binding HasPendingLargeSource}">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <controls:LunaIcon Classes="accent" Data="{StaticResource IconInfo}" VerticalAlignment="Top" />
+          <TextBlock Text="Large file detected" Classes="cardtitle" VerticalAlignment="Center" Grid.Column="1" />
+        </Grid>
+        <TextBlock Text="{Binding PendingLargeText}" Classes="secondary" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <Button Classes="primary" Content="Continue" Command="{Binding ConfirmLargeImportCommand}" HorizontalAlignment="Stretch" />
+          <Button Grid.Column="1" Content="Cancel" Command="{Binding CancelLargeImportCommand}" HorizontalAlignment="Stretch" />
+        </Grid>
       </StackPanel>
     </Border>
+
+    <views:ImportPanel DockPanel.Dock="Top" DataContext="{Binding Import}" Margin="0,0,0,12" />
 
     <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" BorderBrush="#40FBBF24"
             IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
@@ -149,48 +160,45 @@
       </Border>
     </Border>
 
-    <!-- The last DockPanel child fills the panel; both states live in one Grid so the empty state centres in the whole panel,
-         not in a docked strip. -->
+    <!-- The last DockPanel child fills the panel; both states live in one Grid so the empty state centres in the whole panel. -->
     <Grid>
-    <!-- Empty state -->
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260" IsVisible="{Binding !HasAors}">
-      <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource LunaAccentTintBrush}" HorizontalAlignment="Center">
-        <controls:LunaIcon Classes="accent large" Data="{StaticResource IconShield}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-      </Border>
-      <TextBlock Text="No AoRs loaded" Classes="section" HorizontalAlignment="Center" Margin="0,6,0,0" />
-      <TextBlock Text="Upload an AoR JSON file to begin." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
-      <Button Classes="primary" Click="UploadButton_Click" HorizontalAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Upload AoR JSON">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <controls:LunaIcon Data="{StaticResource IconUpload}" />
-          <TextBlock Text="Upload AoR JSON" />
-        </StackPanel>
-      </Button>
-    </StackPanel>
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260" IsVisible="{Binding !HasAors}">
+        <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource LunaAccentTintBrush}" HorizontalAlignment="Center">
+          <controls:LunaIcon Classes="accent large" Data="{StaticResource IconShield}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <TextBlock Text="No AoRs loaded" Classes="section" HorizontalAlignment="Center" Margin="0,6,0,0" />
+        <TextBlock Text="Upload an AoR JSON file to begin." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
+        <Button Classes="primary" Click="UploadButton_Click" IsEnabled="{Binding Import.CanStart}" HorizontalAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Upload AoR JSON">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <controls:LunaIcon Data="{StaticResource IconUpload}" />
+            <TextBlock Text="Upload AoR JSON" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
 
-    <ScrollViewer Padding="0,0,12,0" IsVisible="{Binding HasAors}">
-      <StackPanel Spacing="14">
-
-        <TextBox Classes="search" Watermark="Search areas..." Text="{Binding SearchQuery}" AutomationProperties.Name="Search areas">
-          <TextBox.InnerLeftContent>
-            <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
-          </TextBox.InnerLeftContent>
-        </TextBox>
-
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Text="AREAS OF RESPONSIBILITY" Classes="overline" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" Classes="ghost small" Command="{Binding ToggleSelectAllCommand}" />
-        </Grid>
-
-        <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,16,0,0" IsVisible="{Binding HasNoFilteredAors}">
-          <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
-          <TextBlock Text="No areas match" Classes="cardtitle" HorizontalAlignment="Center" />
-          <TextBlock Text="Try a different search." Classes="secondary" TextAlignment="Center" />
+      <!-- Search stays put; only the (virtualised) list scrolls, so 25,000 zones never become 25,000 visuals. -->
+      <DockPanel IsVisible="{Binding HasAors}">
+        <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,10">
+          <TextBox Classes="search" Watermark="Search areas..." Text="{Binding SearchQuery}" AutomationProperties.Name="Search areas">
+            <TextBox.InnerLeftContent>
+              <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="AREAS OF RESPONSIBILITY" Classes="overline" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="{Binding SelectAllLabel}" Classes="ghost small" Command="{Binding ToggleSelectAllCommand}" />
+          </Grid>
+          <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,10,0,0" IsVisible="{Binding HasNoFilteredAors}">
+            <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
+            <TextBlock Text="No areas match" Classes="cardtitle" HorizontalAlignment="Center" />
+            <TextBlock Text="Try a different search." Classes="secondary" TextAlignment="Center" />
+          </StackPanel>
         </StackPanel>
 
-        <ItemsControl ItemsSource="{Binding FilteredAors}">
-          <ItemsControl.ItemTemplate>
+        <ListBox Classes="cards" ItemsSource="{Binding FilteredAors}" AutomationProperties.Name="Areas of responsibility">
+          <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:AorRowViewModel">
-              <Border Classes="card interactive" Classes.selected="{Binding IsSelected}" Padding="12" Margin="0,0,0,8">
+              <Border Classes="card interactive" Classes.selected="{Binding IsSelected}" Padding="12" Margin="0,0,10,8">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                   <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" MinWidth="0"
                             AutomationProperties.Name="Select area" />
@@ -217,11 +225,9 @@
                 </Grid>
               </Border>
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-      </StackPanel>
-    </ScrollViewer>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
     </Grid>
 
   </DockPanel>

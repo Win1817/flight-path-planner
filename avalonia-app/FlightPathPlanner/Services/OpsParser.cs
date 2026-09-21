@@ -56,7 +56,13 @@ public static partial class OpsParser
         return rawOps.Select(NormalizeOps).ToList();
     }
 
-    private static Ops NormalizeOps(JsonElement raw)
+    /// <summary>True for a single operation-plan object (as opposed to a wrapper holding an array of them).</summary>
+    public static bool IsSingleOpsRecord(JsonElement data) =>
+        data.ValueKind == JsonValueKind.Object &&
+        (data.TryGetProperty("operation_plan_id", out _) || data.TryGetProperty("operationPlanId", out _) ||
+         data.TryGetProperty("operation_volumes", out _) || data.TryGetProperty("operationVolumes", out _));
+
+    public static Ops NormalizeOps(JsonElement raw)
     {
         var operationPlanId = JsonHelpers.GetString(raw, "operationPlanId", "operation_plan_id") ?? "";
         var flightPlanId = JsonHelpers.GetString(raw, "flightPlanId", "flight_plan_id");
@@ -171,9 +177,16 @@ public static partial class OpsParser
         var allVolumes = op.OperationVolumes.Concat(op.OffNominalVolumes).ToList();
         var (start, end) = GetVolumeTimeRange(allVolumes);
 
-        double totalArea = allVolumes
-            .Where(v => v.OperationGeography != null)
-            .Sum(v => v.OperationGeography!.ComputeArea());
+        double totalArea = 0;
+        var bounds = new NetTopologySuite.Geometries.Envelope();
+        int zoneCount = 0;
+        foreach (var v in allVolumes)
+        {
+            if (v.OperationGeography == null) continue;
+            totalArea += v.OperationGeography.ComputeArea();
+            bounds.ExpandToInclude(v.OperationGeography.ComputeBounds());
+            zoneCount++;
+        }
 
         return new ParsedOps
         {
@@ -194,8 +207,11 @@ public static partial class OpsParser
             ComputedArea = totalArea,
             StartTime = start,
             EndTime = end,
-            ZoneCount = allVolumes.Count(v => v.OperationGeography != null),
+            ZoneCount = zoneCount,
             Color = ZoneColors[index % ZoneColors.Length],
+            Ordinal = index,
+            Bounds = bounds,
+            SearchText = string.Join('\u0001', op.Title ?? "", op.OperationPlanId, op.Operator ?? "", op.Description ?? "").ToLowerInvariant(),
         };
     }
 

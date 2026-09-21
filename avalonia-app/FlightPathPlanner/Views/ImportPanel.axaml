@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:controls="using:FlightPathPlanner.Controls"
+             x:Class="FlightPathPlanner.Views.ImportPanel"
+             x:DataType="vm:ImportViewModel">
+
+  <StackPanel Spacing="10">
+
+    <!-- Progress while an import runs -->
+    <Border Classes="card" IsVisible="{Binding IsActive}">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding Title}" Classes="cardtitle" />
+          <TextBlock Grid.Column="1" Text="{Binding PercentText}" Classes="secondary" VerticalAlignment="Center" />
+        </Grid>
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding Percent}" IsIndeterminate="{Binding IsIndeterminate}"
+                     AutomationProperties.Name="Import progress" />
+        <TextBlock Text="{Binding StageText}" Classes="secondary" />
+        <TextBlock Text="{Binding CountText}" Classes="body" />
+        <TextBlock Text="{Binding TimeText}" Classes="meta" />
+        <Button Content="Cancel import" Classes="danger" Command="{Binding CancelCommand}" HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Cancel the import" />
+      </StackPanel>
+    </Border>
+
+    <!-- Result after it ends -->
+    <Border Classes="card quiet" IsVisible="{Binding HasSummary}">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+          <Panel VerticalAlignment="Top" Margin="0,1,0,0">
+            <controls:LunaIcon Classes="success" Data="{StaticResource IconCircleCheck}" IsVisible="{Binding IsCompletedClean}" />
+            <controls:LunaIcon Classes="warning" Data="{StaticResource IconAlert}" IsVisible="{Binding IsCompletedWithWarnings}" />
+            <controls:LunaIcon Classes="danger" Data="{StaticResource IconCircleX}" IsVisible="{Binding IsFailed}" />
+            <controls:LunaIcon Classes="info" Data="{StaticResource IconInfo}" IsVisible="{Binding IsCancelled}" />
+          </Panel>
+          <TextBlock Grid.Column="1" Text="{Binding SummaryTitle}" Classes="cardtitle" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="icon compact ghost" Command="{Binding DismissSummaryCommand}"
+                  AutomationProperties.Name="Dismiss summary" VerticalAlignment="Top">
+            <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />
+          </Button>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding SummaryLines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Text="{Binding}" Classes="secondary" TextWrapping="Wrap" Margin="0,0,0,3" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+  </StackPanel>
+</UserControl>

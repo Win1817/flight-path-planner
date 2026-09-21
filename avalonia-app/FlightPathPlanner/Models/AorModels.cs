@@ -32,6 +32,16 @@ public sealed class ParsedAor : Aor
 {
     public double ComputedArea { get; init; }
     public string? Color { get; init; }
+
+    /// <summary>Position of this AoR in the imported dataset. Stable for the dataset's lifetime; ids may repeat, this never does.</summary>
+    public int Ordinal { get; set; }
+
+    /// <summary>Lon/lat bounds, computed once at import so map viewport queries never walk the geometry.</summary>
+    public NetTopologySuite.Geometries.Envelope Bounds { get; init; } = new();
+
+    /// <summary>Lower-cased text of every searchable field, joined by U+0001 (which a user cannot type, so a query never matches
+    /// across two fields). Built once at import so each search is a plain substring scan.</summary>
+    public string SearchText { get; init; } = "";
 }
 
 public sealed class ParseAorsResult

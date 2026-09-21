@@ -15,9 +15,9 @@ public partial class SavedFilesPanel : UserControl
 
     private static SavedFileRowViewModel? RowOf(object? sender) => (sender as Control)?.Tag as SavedFileRowViewModel;
 
-    private void Load_Click(object? sender, RoutedEventArgs e)
+    private async void Load_Click(object? sender, RoutedEventArgs e)
     {
-        if (RowOf(sender) is { } row) ViewModel?.Load(row);
+        if (RowOf(sender) is { } row && ViewModel is { } vm) await vm.LoadAsync(row);
     }
 
     private void ToggleArchive_Click(object? sender, RoutedEventArgs e)

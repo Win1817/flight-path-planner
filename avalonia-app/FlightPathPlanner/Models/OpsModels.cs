@@ -53,5 +53,14 @@ public sealed class ParsedOps : Ops
     public int ZoneCount { get; init; }
     public string? Color { get; init; }
 
+    /// <summary>Position of this operation in the imported dataset (reassigned if operations are removed).</summary>
+    public int Ordinal { get; set; }
+
+    /// <summary>Lon/lat bounds over all volumes, computed once at import for map viewport and report queries.</summary>
+    public NetTopologySuite.Geometries.Envelope Bounds { get; init; } = new();
+
+    /// <summary>Lower-cased title, id, operator and description joined by U+0001 (never typed by a user), for substring search.</summary>
+    public string SearchText { get; init; } = "";
+
     public IEnumerable<OperationVolume> AllVolumes => OperationVolumes.Concat(OffNominalVolumes);
 }

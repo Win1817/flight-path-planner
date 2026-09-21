@@ -21,13 +21,17 @@ public partial class ReportTabView : UserControl
 
     private async void ExportJsonButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (ViewModel is { } vm)
-            await FileDialogs.SaveJsonAsync(this, "Export Geozone Report as JSON", $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.json", vm.ExportSummaryToJson);
+        if (ViewModel is not { } vm) return;
+        var export = vm.PrepareSummaryExport();
+        if (await FileDialogs.SaveJsonAsync(this, "Export Geozone Report as JSON", $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.json", () => export.BuildJson))
+            await vm.SaveLocalCopyAsync(export);
     }
 
     private async void ExportXlsxButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (ViewModel is { } vm)
-            await FileDialogs.SaveXlsxAsync(this, "Export Geozone Report as XLSX", $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", vm.ExportSummaryToXlsxBytes);
+        if (ViewModel is not { } vm) return;
+        var export = vm.PrepareSummaryExport();
+        if (await FileDialogs.SaveXlsxAsync(this, "Export Geozone Report as XLSX", $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", () => export.BuildXlsx))
+            await vm.SaveLocalCopyAsync(export);
     }
 }

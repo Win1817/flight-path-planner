@@ -1,100 +1,119 @@
+using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using FlightPathPlanner.Models;
 
 namespace FlightPathPlanner.Services;
 
-/// <summary>Builds the viewer FeatureCollection consumed by Assets/map/map.js. Ported from opsToGeoJSON /
-/// aorsToGeoJSON in the former web app (property names must match what map.js reads).</summary>
+/// <summary>Builds the GeoJSON features consumed by Assets/map/map.js (property names must match what the page reads).
+/// Features are produced in chunks — each chunk is a JSON array of features — so a large selection is streamed to the web view
+/// as several modest messages instead of one giant string, and nothing ever builds a FeatureCollection for a whole dataset.</summary>
 public static class MapGeoJson
 {
     public const string LookupRadiusId = "__lookup_radius__";
+    public const int DefaultChunkFeatures = 400;
 
-    public static string Build(IEnumerable<ParsedOps> ops, IEnumerable<ParsedAor> aors, (double lon, double lat, double radiusKm)? lookupRadius = null)
+    /// <summary>Whole-collection form (small inputs and tests): {"type":"FeatureCollection","features":[...]}.</summary>
+    public static string Build(IEnumerable<ParsedOps> ops, IEnumerable<ParsedAor> aors,
+        (double lon, double lat, double radiusKm)? lookupRadius = null, IReadOnlySet<string>? highlightIds = null)
     {
-        using var stream = new MemoryStream();
-        using (var w = new Utf8JsonWriter(stream))
-        {
-            w.WriteStartObject();
-            w.WriteString("type", "FeatureCollection");
-            w.WriteStartArray("features");
-
-            if (lookupRadius is { } r)
-            {
-                var circle = new Models.Geometry { Type = "Polygon", Polygons = new[] { GeoMath.Circle(r.lon, r.lat, r.radiusKm) } };
-                w.WriteStartObject();
-                w.WriteString("type", "Feature");
-                w.WriteStartObject("properties");
-                w.WriteString("dataType", "aor");
-                w.WriteString("aorId", LookupRadiusId);
-                w.WriteString("name", "Search Radius");
-                w.WriteString("designator", $"{r.radiusKm:0.##} km");
-                w.WriteNumber("area", circle.ComputeArea());
-                w.WriteString("color", "#FB7185"); // Luna danger: the lookup radius must not resemble any OPS/AoR colour
-                w.WriteEndObject();
-                WriteGeometry(w, circle);
-                w.WriteEndObject();
-            }
-
-            foreach (var aor in aors)
-            {
-                w.WriteStartObject();
-                w.WriteString("type", "Feature");
-                w.WriteStartObject("properties");
-                w.WriteString("dataType", "aor");
-                w.WriteString("aorId", aor.Id);
-                w.WriteString("name", aor.Name);
-                w.WriteString("designator", aor.Designator);
-                w.WriteNumber("lowerLimit", aor.LowerLimit);
-                w.WriteNumber("upperLimit", aor.UpperLimit);
-                w.WriteString("limitUnit", aor.VerticalLimitsUom);
-                w.WriteString("verticalReference", aor.VerticalReferenceType);
-                w.WriteNumber("area", aor.ComputedArea);
-                w.WriteString("color", aor.Color ?? "#FFD700");
-                w.WriteEndObject();
-                WriteGeometry(w, aor.Geometry);
-                w.WriteEndObject();
-            }
-
-            foreach (var op in ops)
-            {
-                int index = 0;
-                foreach (var volume in op.AllVolumes)
-                {
-                    var geography = volume.OperationGeography;
-                    if (geography == null) { index++; continue; }
-
-                    w.WriteStartObject();
-                    w.WriteString("type", "Feature");
-                    w.WriteStartObject("properties");
-                    w.WriteString("opsId", op.OperationPlanId);
-                    w.WriteString("operationPlanId", op.OperationPlanId);
-                    w.WriteString("dataType", "ops");
-                    w.WriteString("operator", op.Operator);
-                    w.WriteString("title", string.IsNullOrEmpty(op.Title) ? "Untitled Operation" : op.Title);
-                    w.WriteString("description", op.Description ?? "");
-                    w.WriteString("state", op.State);
-                    w.WriteString("closureReason", op.ClosureReason);
-                    w.WriteNumber("volumeIndex", index);
-                    if (volume.MinAltitude != null) w.WriteNumber("minAltitude", volume.MinAltitude.AltitudeValue);
-                    if (volume.MaxAltitude != null) w.WriteNumber("maxAltitude", volume.MaxAltitude.AltitudeValue);
-                    w.WriteString("altitudeUnit", volume.MaxAltitude?.UnitsOfMeasure ?? volume.MinAltitude?.UnitsOfMeasure ?? "FT");
-                    w.WriteString("startTime", volume.EffectiveTimeBegin);
-                    w.WriteString("endTime", volume.EffectiveTimeEnd);
-                    w.WriteNumber("area", geography.ComputeArea());
-                    w.WriteString("color", op.Color);
-                    w.WriteEndObject();
-                    WriteGeometry(w, geography);
-                    w.WriteEndObject();
-                    index++;
-                }
-            }
-
-            w.WriteEndArray();
-            w.WriteEndObject();
-        }
-        return Encoding.UTF8.GetString(stream.ToArray());
+        var chunks = BuildChunks(ops, aors, lookupRadius, highlightIds, chunkFeatures: int.MaxValue);
+        var body = chunks.Count == 0 ? "[]" : chunks[0];
+        return "{\"type\":\"FeatureCollection\",\"features\":" + body + "}";
     }
+
+    /// <param name="highlightIds">Ids (opsId / aorId) to flag with "hl":1 so the page can draw them emphasised without a large id list.</param>
+    /// <returns>Chunks, each a JSON array of features. Empty input yields no chunks.</returns>
+    public static List<string> BuildChunks(IEnumerable<ParsedOps> ops, IEnumerable<ParsedAor> aors,
+        (double lon, double lat, double radiusKm)? lookupRadius = null, IReadOnlySet<string>? highlightIds = null,
+        int chunkFeatures = DefaultChunkFeatures, CancellationToken ct = default)
+    {
+        var chunks = new List<string>();
+        using var writer = new ChunkWriter(chunks, chunkFeatures);
+
+        if (lookupRadius is { } r)
+        {
+            var circle = new Models.Geometry { Type = "Polygon", Polygons = new[] { GeoMath.Circle(r.lon, r.lat, r.radiusKm) } };
+            writer.BeginFeature();
+            var w = writer.Json;
+            w.WriteStartObject("properties");
+            w.WriteString("dataType", "aor");
+            w.WriteString("aorId", LookupRadiusId);
+            w.WriteString("name", "Search Radius");
+            w.WriteString("designator", $"{r.radiusKm:0.##} km");
+            w.WriteNumber("area", circle.ComputeArea());
+            w.WriteString("color", "#FB7185"); // Luna danger: the lookup radius must not resemble any OPS/AoR colour
+            w.WriteEndObject();
+            WriteGeometry(w, circle);
+            writer.EndFeature();
+        }
+
+        int count = 0;
+        foreach (var aor in aors)
+        {
+            if ((++count & 255) == 0) ct.ThrowIfCancellationRequested();
+            writer.BeginFeature();
+            var w = writer.Json;
+            w.WriteStartObject("properties");
+            w.WriteString("dataType", "aor");
+            w.WriteString("aorId", aor.Id);
+            if (highlightIds?.Contains(aor.Id) == true) w.WriteNumber("hl", 1);
+            w.WriteString("name", aor.Name);
+            w.WriteString("designator", aor.Designator);
+            w.WriteNumber("lowerLimit", aor.LowerLimit);
+            w.WriteNumber("upperLimit", aor.UpperLimit);
+            w.WriteString("limitUnit", aor.VerticalLimitsUom);
+            w.WriteString("verticalReference", aor.VerticalReferenceType);
+            w.WriteNumber("area", aor.ComputedArea);
+            w.WriteString("color", aor.Color ?? "#FFD700");
+            w.WriteEndObject();
+            WriteGeometry(w, aor.Geometry);
+            writer.EndFeature();
+        }
+
+        foreach (var op in ops)
+        {
+            if ((++count & 255) == 0) ct.ThrowIfCancellationRequested();
+            int index = 0;
+            bool highlighted = highlightIds?.Contains(op.OperationPlanId) == true;
+            foreach (var volume in op.AllVolumes)
+            {
+                var geography = volume.OperationGeography;
+                if (geography == null) { index++; continue; }
+
+                writer.BeginFeature();
+                var w = writer.Json;
+                w.WriteStartObject("properties");
+                w.WriteString("opsId", op.OperationPlanId);
+                w.WriteString("operationPlanId", op.OperationPlanId);
+                w.WriteString("dataType", "ops");
+                if (highlighted) w.WriteNumber("hl", 1);
+                w.WriteString("operator", op.Operator);
+                w.WriteString("title", string.IsNullOrEmpty(op.Title) ? "Untitled Operation" : op.Title);
+                w.WriteString("description", op.Description ?? "");
+                w.WriteString("state", op.State);
+                w.WriteString("closureReason", op.ClosureReason);
+                w.WriteNumber("volumeIndex", index);
+                if (volume.MinAltitude != null) w.WriteNumber("minAltitude", volume.MinAltitude.AltitudeValue);
+                if (volume.MaxAltitude != null) w.WriteNumber("maxAltitude", volume.MaxAltitude.AltitudeValue);
+                w.WriteString("altitudeUnit", volume.MaxAltitude?.UnitsOfMeasure ?? volume.MinAltitude?.UnitsOfMeasure ?? "FT");
+                w.WriteString("startTime", volume.EffectiveTimeBegin);
+                w.WriteString("endTime", volume.EffectiveTimeEnd);
+                w.WriteNumber("area", geography.ComputeArea());
+                w.WriteString("color", op.Color);
+                w.WriteEndObject();
+                WriteGeometry(w, geography);
+                writer.EndFeature();
+                index++;
+            }
+        }
+
+        writer.Finish();
+        return chunks;
+    }
+
+    // 1e-6 degrees is ~0.1 m: plenty for display, and it trims the payload by a third.
+    private static double Q(double v) => Math.Round(v, 6);
 
     private static void WriteGeometry(Utf8JsonWriter w, Models.Geometry geometry)
     {
@@ -121,12 +140,67 @@ public static class MapGeoJson
             foreach (var point in ring)
             {
                 w.WriteStartArray();
-                w.WriteNumberValue(point[0]);
-                w.WriteNumberValue(point[1]);
+                w.WriteNumberValue(Q(point[0]));
+                w.WriteNumberValue(Q(point[1]));
                 w.WriteEndArray();
             }
             w.WriteEndArray();
         }
         w.WriteEndArray();
+    }
+
+    /// <summary>Writes features into successive chunks of at most N features each.</summary>
+    private sealed class ChunkWriter : IDisposable
+    {
+        private readonly List<string> _chunks;
+        private readonly int _perChunk;
+        private readonly ArrayBufferWriter<byte> _buffer = new(1 << 16);
+        private readonly Utf8JsonWriter _writer;
+        private int _inChunk;
+        private bool _open;
+
+        public ChunkWriter(List<string> chunks, int perChunk)
+        {
+            _chunks = chunks;
+            _perChunk = perChunk;
+            _writer = new Utf8JsonWriter(_buffer);
+        }
+
+        public Utf8JsonWriter Json => _writer;
+
+        public void BeginFeature()
+        {
+            if (!_open)
+            {
+                _buffer.Clear();
+                _writer.Reset(_buffer);
+                _writer.WriteStartArray();
+                _open = true;
+                _inChunk = 0;
+            }
+            _writer.WriteStartObject();
+            _writer.WriteString("type", "Feature");
+        }
+
+        public void EndFeature()
+        {
+            _writer.WriteEndObject();
+            if (++_inChunk >= _perChunk) Close();
+        }
+
+        public void Finish()
+        {
+            if (_open) Close();
+        }
+
+        private void Close()
+        {
+            _writer.WriteEndArray();
+            _writer.Flush();
+            _chunks.Add(Encoding.UTF8.GetString(_buffer.WrittenSpan));
+            _open = false;
+        }
+
+        public void Dispose() => _writer.Dispose();
     }
 }

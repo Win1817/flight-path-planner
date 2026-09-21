@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using FlightPathPlanner.Models;
 using NetTopologySuite;
 using NetTopologySuite.Geometries;
@@ -5,12 +6,16 @@ using NtsGeometry = NetTopologySuite.Geometries.Geometry;
 
 namespace FlightPathPlanner.Services;
 
-/// <summary>Ported from src/utils/reportUtils.ts — keep in sync with that file's intersects logic.
-/// Uses NetTopologySuite's planar Intersects() on raw lon/lat coordinates, matching turf's
-/// booleanIntersects (also planar, no geodesic correction) so results agree with the web app.</summary>
+/// <summary>Ported from src/utils/reportUtils.ts — same planar intersection semantics as turf's booleanIntersects (NetTopologySuite
+/// <c>Intersects</c> on raw lon/lat). Large datasets are handled by (1) rejecting non-overlapping candidates with the bounds computed
+/// at import before any exact test, (2) building each operation's NTS geometry at most once (cached for the operation's lifetime), and
+/// (3) running the all-AoR summary in parallel.</summary>
 public static class ReportService
 {
     private static readonly GeometryFactory Factory = NtsGeometryServices.Instance.CreateGeometryFactory();
+
+    // Exact geometry per operation, built on first need. Weak so removed operations don't pin memory.
+    private static readonly ConditionalWeakTable<ParsedOps, NtsGeometry[]> OpGeometryCache = new();
 
     private static Coordinate[] ToCoordinates(double[][] ring) =>
         ring.Select(pt => new Coordinate(pt[0], pt[1])).ToArray();
@@ -32,57 +37,65 @@ public static class ReportService
         }
         catch
         {
-            return null;
+            return null; // unusable geometry: treated as "intersects nothing", as before
         }
     }
 
-    private sealed record OpFeatureCache(ParsedOps Op, List<NtsGeometry> Features);
+    private static NtsGeometry[] GeometriesOf(ParsedOps op) =>
+        OpGeometryCache.GetValue(op, o => o.AllVolumes
+            .Select(v => ToNtsGeometry(v.OperationGeography))
+            .Where(g => g != null)
+            .Select(g => g!)
+            .ToArray());
 
-    private static List<OpFeatureCache> BuildOpFeatureCache(IEnumerable<ParsedOps> ops) =>
-        ops.Select(op => new OpFeatureCache(
-            op,
-            op.AllVolumes
-                .Select(v => ToNtsGeometry(v.OperationGeography))
-                .Where(g => g != null)
-                .Select(g => g!)
-                .ToList()))
-            .ToList();
-
-    private static bool CachedOpIntersects(OpFeatureCache cached, NtsGeometry aorFeature) =>
-        cached.Features.Any(f =>
+    private static bool OpIntersects(ParsedOps op, NtsGeometry target)
+    {
+        if (!op.Bounds.Intersects(target.EnvelopeInternal)) return false;
+        foreach (var feature in GeometriesOf(op))
         {
-            try { return f.Intersects(aorFeature); }
-            catch { return false; }
-        });
+            try { if (feature.Intersects(target)) return true; }
+            catch { /* invalid geometry: no match, as before */ }
+        }
+        return false;
+    }
 
     /// <summary>The ops whose operation volumes geographically intersect the given AoR.</summary>
     public static List<ParsedOps> GetOpsInAor(IReadOnlyList<ParsedOps> ops, ParsedAor aor)
     {
         var aorFeature = ToNtsGeometry(aor.Geometry);
         if (aorFeature == null) return new List<ParsedOps>();
-        var cache = BuildOpFeatureCache(ops);
-        return cache.Where(c => CachedOpIntersects(c, aorFeature)).Select(c => c.Op).ToList();
+        return ops.Where(op => OpIntersects(op, aorFeature)).ToList();
     }
 
     public sealed record AorReportRow(ParsedAor Aor, int MatchCount);
 
-    /// <summary>For every AoR, how many of the given ops geographically intersect it.</summary>
-    public static List<AorReportRow> GetAorReportSummary(IReadOnlyList<ParsedAor> aors, IReadOnlyList<ParsedOps> ops)
+    /// <summary>For every AoR, how many of the given ops geographically intersect it. Safe to run on a worker thread.</summary>
+    public static List<AorReportRow> GetAorReportSummary(IReadOnlyList<ParsedAor> aors, IReadOnlyList<ParsedOps> ops, CancellationToken ct = default)
     {
-        var opCache = BuildOpFeatureCache(ops);
-        return aors.Select(aor =>
+        var rows = new AorReportRow[aors.Count];
+        var options = new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 1) };
+
+        Parallel.For(0, aors.Count, options, i =>
         {
-            var aorFeature = ToNtsGeometry(aor.Geometry);
-            if (aorFeature == null) return new AorReportRow(aor, 0);
-            return new AorReportRow(aor, opCache.Count(c => CachedOpIntersects(c, aorFeature)));
-        }).ToList();
+            var aor = aors[i];
+            var feature = ToNtsGeometry(aor.Geometry);
+            int matches = 0;
+            if (feature != null)
+            {
+                foreach (var op in ops)
+                {
+                    if (OpIntersects(op, feature)) matches++;
+                }
+            }
+            rows[i] = new AorReportRow(aor, matches);
+        });
+        return rows.ToList();
     }
 
     /// <summary>The ops whose operation volumes fall within radiusKm of the given center point.</summary>
     public static List<ParsedOps> GetOpsNearPoint(IReadOnlyList<ParsedOps> ops, double centerLon, double centerLat, double radiusKm)
     {
         var circle = ToNtsPolygon(GeoMath.Circle(centerLon, centerLat, radiusKm));
-        var cache = BuildOpFeatureCache(ops);
-        return cache.Where(c => CachedOpIntersects(c, circle)).Select(c => c.Op).ToList();
+        return ops.Where(op => OpIntersects(op, circle)).ToList();
     }
 }

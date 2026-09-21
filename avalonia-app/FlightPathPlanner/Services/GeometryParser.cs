@@ -23,10 +23,25 @@ internal static class GeometryParser
         return new Geometry { Type = "MultiPolygon", Polygons = polygons };
     }
 
-    private static double[][][] ParsePolygonCoords(JsonElement polygonCoords) =>
-        polygonCoords.EnumerateArray()
-            .Select(ring => ring.EnumerateArray()
-                .Select(pt => pt.EnumerateArray().Select(n => n.GetDouble()).ToArray())
-                .ToArray())
-            .ToArray();
+    /// <summary>Rings -> points -> numbers. Written with sized arrays and plain loops: this is the hottest loop of a large import
+    /// (millions of vertices), and the LINQ version allocated an iterator, a list and an array for every point.</summary>
+    public static double[][][] ParsePolygonCoords(JsonElement polygonCoords)
+    {
+        var rings = new double[polygonCoords.GetArrayLength()][][];
+        int r = 0;
+        foreach (var ring in polygonCoords.EnumerateArray())
+        {
+            var points = new double[ring.GetArrayLength()][];
+            int p = 0;
+            foreach (var point in ring.EnumerateArray())
+            {
+                var values = new double[point.GetArrayLength()];
+                int v = 0;
+                foreach (var number in point.EnumerateArray()) values[v++] = number.GetDouble();
+                points[p++] = values;
+            }
+            rings[r++] = points;
+        }
+        return rings;
+    }
 }

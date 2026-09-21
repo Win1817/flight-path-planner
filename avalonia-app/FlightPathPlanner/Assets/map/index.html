@@ -48,6 +48,13 @@
     .gap-3 { gap: 12px; }
     .pt-1 { padding-top: 4px; }
     p { margin: 0; }
+
+    /* Viewport-rendering note, bottom-left. */
+    #status {
+      position: absolute; left: 12px; bottom: 12px; z-index: 5; display: none;
+      background: var(--luna-glass); color: var(--luna-secondary); border: 1px solid var(--luna-border);
+      border-radius: 10px; padding: 6px 12px; font-size: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
   </style>
 </head>
 <body>

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FlightPathPlanner.Models;
 using FlightPathPlanner.Services;
+using NetTopologySuite.Geometries;
 
 namespace FlightPathPlanner.ViewModels;
 
@@ -33,11 +34,19 @@ public partial class MainViewModel : ViewModelBase
 
     private string? _hoveredId;
 
-    /// <summary>Raised when the set of shapes on the map changed (view should call <see cref="BuildMapGeoJson"/>).</summary>
+    /// <summary>The set of shapes changed (import, filter, tab switch...): rebuild the map data and move the camera to fit it.</summary>
     public event Action? MapDataInvalidated;
 
-    /// <summary>Raised when only the highlighted shapes changed (view should call <see cref="BuildHighlightIds"/>).</summary>
+    /// <summary>Only the selection changed: rebuild the map data (selected shapes are flagged in it) but leave the camera alone.</summary>
+    public event Action? MapSelectionChanged;
+
+    /// <summary>Only hover/active items changed: cheap, just re-send the small highlight id list.</summary>
     public event Action? MapHighlightsInvalidated;
+
+    /// <summary>The map reports a new visible area and the current data set is large enough to be drawn by viewport.</summary>
+    public event Action? MapViewportChanged;
+
+    private Envelope? _viewport;
 
     public MainViewModel() : this(LocalStorageService.CreateDefault()) { }
 
@@ -60,34 +69,42 @@ public partial class MainViewModel : ViewModelBase
         }
 
         OpsTab.PropertyChanged += (_, e) => OnTabChanged(e, AppTab.Ops,
-            data: nameof(OpsTabViewModel.FilteredOps),
-            highlights: new[] { nameof(OpsTabViewModel.SelectedCount), nameof(OpsTabViewModel.ActiveOp) });
+            data: new[] { nameof(OpsTabViewModel.FilteredOps) },
+            selection: new[] { nameof(OpsTabViewModel.SelectedCount) },
+            highlights: new[] { nameof(OpsTabViewModel.ActiveOp) });
         AorTab.PropertyChanged += (_, e) => OnTabChanged(e, AppTab.Aors,
-            data: nameof(AorTabViewModel.FilteredAors),
-            highlights: new[] { nameof(AorTabViewModel.SelectedCount), nameof(AorTabViewModel.ActiveAor) });
+            data: new[] { nameof(AorTabViewModel.FilteredAors) },
+            selection: new[] { nameof(AorTabViewModel.SelectedCount) },
+            highlights: new[] { nameof(AorTabViewModel.ActiveAor) });
+        // Report and lookup draw a handful of shapes, so any change to them rebuilds the whole (small) set.
         ReportTab.PropertyChanged += (_, e) => OnTabChanged(e, AppTab.Report,
-            data: nameof(ReportTabViewModel.MatchingOps), highlights: new[] { nameof(ReportTabViewModel.SelectedAor) });
+            data: new[] { nameof(ReportTabViewModel.MatchingOps), nameof(ReportTabViewModel.SelectedAor) }, selection: Array.Empty<string>(), highlights: Array.Empty<string>());
         LookupTab.PropertyChanged += (_, e) => OnTabChanged(e, AppTab.Lookup,
-            data: nameof(LookupTabViewModel.MatchingOps), highlights: new[] { nameof(LookupTabViewModel.Center), nameof(LookupTabViewModel.RadiusKm) });
+            data: new[] { nameof(LookupTabViewModel.MatchingOps), nameof(LookupTabViewModel.Center), nameof(LookupTabViewModel.RadiusKm) },
+            selection: Array.Empty<string>(), highlights: Array.Empty<string>());
     }
 
-    private void OnTabChanged(PropertyChangedEventArgs e, AppTab tab, string data, string[] highlights)
+    private void OnTabChanged(PropertyChangedEventArgs e, AppTab tab, string[] data, string[] selection, string[] highlights)
     {
         bool shown = ActiveTab == tab || (tab == AppTab.Ops && ActiveTab == AppTab.Saved);
-        if (e.PropertyName == data)
+        var name = e.PropertyName;
+        if (name == null) return;
+
+        if (data.Contains(name))
         {
-            // The report also shows every AoR when none is picked, and the lookup circle depends on center/radius.
             if (shown) MapDataInvalidated?.Invoke();
         }
-        else if (e.PropertyName != null && highlights.Contains(e.PropertyName))
+        else if (selection.Contains(name))
         {
-            if (!shown) return;
-            if (tab is AppTab.Report or AppTab.Lookup) MapDataInvalidated?.Invoke();
-            else MapHighlightsInvalidated?.Invoke();
+            if (shown) MapSelectionChanged?.Invoke();
         }
-        else if (e.PropertyName == nameof(AorTabViewModel.AllAors) && ActiveTab == AppTab.Report)
+        else if (highlights.Contains(name))
         {
-            MapDataInvalidated?.Invoke();
+            if (shown) MapHighlightsInvalidated?.Invoke();
+        }
+        else if (name == nameof(AorTabViewModel.AllAors) && ActiveTab == AppTab.Report)
+        {
+            MapDataInvalidated?.Invoke(); // the report shows every AoR until one is picked
         }
     }
 
@@ -172,47 +189,110 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void SelectTab(AppTab tab) => ActiveTab = tab;
 
+    // =====================================================================================================
+    //  Map
+    // =====================================================================================================
+
+    /// <summary>Whether the current map content is large enough that it is drawn by viewport rather than all at once.</summary>
+    public bool IsMapViewportMode => ActiveTab switch
+    {
+        AppTab.Ops or AppTab.Saved => MapPayloadBuilder.UsesViewport(OpsTab.FilteredCount),
+        AppTab.Aors => MapPayloadBuilder.UsesViewport(AorTab.FilteredCount),
+        AppTab.Report => ReportTab.SelectedAor == null && MapPayloadBuilder.UsesViewport(AorTab.TotalCount),
+        _ => false,
+    };
+
+    /// <summary>Called with the area the map page currently shows (west, south, east, north).</summary>
+    public void HandleMapViewportChanged(double west, double south, double east, double north)
+    {
+        var next = new Envelope(west, east, south, north);
+        if (_viewport != null && _viewport.Equals(next)) return;
+        _viewport = next;
+        if (IsMapViewportMode) MapViewportChanged?.Invoke();
+    }
+
+    /// <summary>Snapshots what the map should show (cheap; UI thread) and returns a builder that turns the snapshot into a payload. The
+    /// builder only touches immutable data (dataset arrays, filter masks, copied id sets), so it is safe to run on a worker thread.</summary>
+    public Func<CancellationToken, MapPayload> CreateMapRequest(bool fit, int version)
+    {
+        var viewport = _viewport;
+        switch (ActiveTab)
+        {
+            case AppTab.Ops:
+            case AppTab.Saved:
+            {
+                var dataset = OpsTab.Dataset;
+                var mask = OpsTab.FilterMask;
+                int included = OpsTab.FilteredCount;
+                var highlighted = OpsTab.SelectedOps.Select(o => o.OperationPlanId).ToHashSet();
+                return ct => MapPayloadBuilder.ForOps(dataset, mask, included, highlighted, viewport, fit, version, ct);
+            }
+            case AppTab.Aors:
+            {
+                var dataset = AorTab.Dataset;
+                var mask = AorTab.FilterMask;
+                int included = AorTab.FilteredCount;
+                var highlighted = AorTab.SelectedAors.Select(a => a.Id).ToHashSet();
+                return ct => MapPayloadBuilder.ForAors(dataset, mask, included, highlighted, viewport, fit, version, ct);
+            }
+            case AppTab.Report when ReportTab.SelectedAor is { } selected:
+            {
+                var ops = ReportTab.MatchingOps.Select(r => r.Op).ToArray();
+                var aors = new[] { selected.Aor };
+                var highlighted = ops.Select(o => o.OperationPlanId).Append(selected.Aor.Id).ToHashSet();
+                return ct => MapPayloadBuilder.ForSmallSet(ops, aors, null, highlighted, fit, version, ct);
+            }
+            case AppTab.Report:
+            {
+                var dataset = AorTab.Dataset;
+                int included = AorTab.TotalCount;
+                var none = new HashSet<string>();
+                return ct => MapPayloadBuilder.ForAors(dataset, null, included, none, viewport, fit, version, ct);
+            }
+            default:
+            {
+                if (LookupTab.Center is not { } center)
+                    return ct => MapPayloadBuilder.ForSmallSet(Array.Empty<ParsedOps>(), Array.Empty<ParsedAor>(), null, new HashSet<string>(), fit, version, ct);
+                var ops = LookupTab.MatchingOps.Select(r => r.Op).ToArray();
+                var radius = (center.Lng, center.Lat, LookupTab.RadiusKm);
+                var highlighted = ops.Select(o => o.OperationPlanId).ToHashSet();
+                return ct => MapPayloadBuilder.ForSmallSet(ops, Array.Empty<ParsedAor>(), radius, highlighted, fit, version, ct);
+            }
+        }
+    }
+
+    /// <summary>The whole current map content as one GeoJSON FeatureCollection. For tests and small inputs only: the app draws through
+    /// <see cref="CreateMapRequest"/>, which never builds a collection for a whole large dataset.</summary>
     public string BuildMapGeoJson()
     {
         switch (ActiveTab)
         {
             case AppTab.Saved:
             case AppTab.Ops:
-                return MapGeoJson.Build(OpsTab.FilteredOps.Select(r => r.Op), Array.Empty<ParsedAor>());
+                return MapGeoJson.Build(OpsTab.FilteredOpData, Array.Empty<ParsedAor>(), null, OpsTab.SelectedOps.Select(o => o.OperationPlanId).ToHashSet());
             case AppTab.Aors:
-                return MapGeoJson.Build(Array.Empty<ParsedOps>(), AorTab.FilteredAors.Select(r => r.Aor));
+                return MapGeoJson.Build(Array.Empty<ParsedOps>(), AorTab.FilteredAorData, null, AorTab.SelectedAors.Select(a => a.Id).ToHashSet());
             case AppTab.Report:
                 if (ReportTab.SelectedAor is { } selected)
-                    return MapGeoJson.Build(ReportTab.MatchingOps.Select(r => r.Op), new[] { selected.Aor });
+                {
+                    var ops = ReportTab.MatchingOps.Select(r => r.Op).ToArray();
+                    return MapGeoJson.Build(ops, new[] { selected.Aor }, null, ops.Select(o => o.OperationPlanId).Append(selected.Aor.Id).ToHashSet());
+                }
                 return MapGeoJson.Build(Array.Empty<ParsedOps>(), AorTab.AllAors);
             default:
                 if (LookupTab.Center is { } center)
-                    return MapGeoJson.Build(LookupTab.MatchingOps.Select(r => r.Op), Array.Empty<ParsedAor>(),
-                        (center.Lng, center.Lat, LookupTab.RadiusKm));
+                {
+                    var ops = LookupTab.MatchingOps.Select(r => r.Op).ToArray();
+                    return MapGeoJson.Build(ops, Array.Empty<ParsedAor>(), (center.Lng, center.Lat, LookupTab.RadiusKm), ops.Select(o => o.OperationPlanId).ToHashSet());
+                }
                 return MapGeoJson.Build(Array.Empty<ParsedOps>(), Array.Empty<ParsedAor>());
         }
     }
 
+    /// <summary>Ids to emphasise on top of the selection flags carried in the map data: the hovered and the active item (at most two).</summary>
     public IReadOnlyCollection<string> BuildHighlightIds()
     {
         var ids = new HashSet<string>();
-        switch (ActiveTab)
-        {
-            case AppTab.Saved:
-            case AppTab.Ops:
-                foreach (var r in OpsTab.FilteredOps.Where(r => r.IsSelected)) ids.Add(r.OperationPlanId);
-                break;
-            case AppTab.Aors:
-                foreach (var r in AorTab.FilteredAors.Where(r => r.IsSelected)) ids.Add(r.Id);
-                break;
-            case AppTab.Report:
-                foreach (var r in ReportTab.MatchingOps) ids.Add(r.OperationPlanId);
-                if (ReportTab.SelectedAor != null) ids.Add(ReportTab.SelectedAor.Id);
-                break;
-            default:
-                foreach (var r in LookupTab.MatchingOps) ids.Add(r.OperationPlanId);
-                break;
-        }
         if (_hoveredId != null) ids.Add(_hoveredId);
         if (OpsTab.ActiveOp != null) ids.Add(OpsTab.ActiveOp.OperationPlanId);
         if (AorTab.ActiveAor != null) ids.Add(AorTab.ActiveAor.Id);
@@ -234,11 +314,11 @@ public partial class MainViewModel : ViewModelBase
             if (ActiveTab == AppTab.Report)
                 ReportTab.SelectedAor = ReportTab.AorOptions.FirstOrDefault(o => o.Id == id) ?? ReportTab.SelectedAor;
             else
-                AorTab.ActiveAor = AorTab.FilteredAors.FirstOrDefault(r => r.Id == id) ?? AorTab.ActiveAor;
+                AorTab.ActiveAor = AorTab.FindVisibleRow(id) ?? AorTab.ActiveAor;
         }
         else
         {
-            var row = OpsTab.FilteredOps.FirstOrDefault(r => r.OperationPlanId == id);
+            var row = OpsTab.FindVisibleRow(id);
             if (row != null) OpsTab.ActiveOp = row;
             if (ActiveTab == AppTab.Aors) ActiveTab = AppTab.Ops;
         }

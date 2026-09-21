@@ -1,6 +1,5 @@
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Threading;
 using FlightPathPlanner.ViewModels;
 
 namespace FlightPathPlanner.Views;
@@ -17,26 +16,23 @@ public partial class AorTabView : UserControl
     private async void UploadButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var vm = ViewModel;
-        if (vm == null) return;
-        if (await FileDialogs.PickJsonAsync(this, "Upload AoR JSON") is not { } picked) return;
+        if (vm == null || !vm.Import.CanStart) return;
+        if (await FileDialogs.PickJsonSourceAsync(this, "Upload AoR JSON") is not { } source) return;
 
-        vm.BusyText = $"Loading {picked.Name}…";
-        vm.IsBusy = true;
-        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-        try { vm.LoadFromJson(picked.Text, picked.Name); }
-        finally { vm.IsBusy = false; }
+        // The file is streamed and parsed on a worker thread; the window stays responsive and the import can be cancelled.
+        await vm.RequestImportAsync(source);
     }
 
     private async void ExportJsonButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (ViewModel is { } vm)
-            await FileDialogs.SaveJsonAsync(this, "Export AoRs as JSON", $"aors-{DateTime.UtcNow:yyyy-MM-dd}.json", vm.ExportSelectedToJson);
+            await FileDialogs.SaveJsonAsync(this, "Export AoRs as JSON", $"aors-{DateTime.UtcNow:yyyy-MM-dd}.json", () => vm.PrepareSelectedJsonExport());
     }
 
     private async void ExportXlsxButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (ViewModel is { } vm)
-            await FileDialogs.SaveXlsxAsync(this, "Export AoRs as XLSX", $"aors-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", vm.ExportSelectedToXlsxBytes);
+            await FileDialogs.SaveXlsxAsync(this, "Export AoRs as XLSX", $"aors-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", () => vm.PrepareSelectedXlsxExport());
     }
 
     private void AorRow_Tapped(object? sender, TappedEventArgs e)

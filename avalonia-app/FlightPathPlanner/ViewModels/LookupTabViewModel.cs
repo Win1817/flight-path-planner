@@ -179,7 +179,7 @@ public partial class LookupTabViewModel : ViewModelBase
         }
         else
         {
-            var currentOps = _opsTab.FilteredOps.Select(r => r.Op).ToList();
+            var currentOps = _opsTab.FilteredOpData;
             var matched = ReportService.GetOpsNearPoint(currentOps, Center.Lng, Center.Lat, RadiusKm);
             MatchingOps = new ObservableCollection<OpsRowViewModel>(matched.Select(op => new OpsRowViewModel(op)));
         }
@@ -252,19 +252,15 @@ public partial class LookupTabViewModel : ViewModelBase
         })).ToList();
     }
 
-    public string ExportMatchesToJson()
-    {
-        var rows = BuildExportRows();
-        var comment = Center != null
-            ? $"{MatchingOps.Count} flight plan(s) within {RadiusKm}km of {Center.DisplayName}"
-            : "";
-        var exportObject = new { comment, data = rows };
-        return JsonSerializer.Serialize(exportObject, new JsonSerializerOptions { WriteIndented = true });
-    }
+    private string BuildComment() => Center != null
+        ? $"{MatchingOps.Count} flight plan(s) within {RadiusKm}km of {Center.DisplayName}"
+        : "";
 
-    public byte[] ExportMatchesToXlsxBytes()
+    private static string SerializeJson(string comment, List<LookupExportRow> rows) =>
+        JsonSerializer.Serialize(new { comment, data = rows }, new JsonSerializerOptions { WriteIndented = true });
+
+    private static byte[] SerializeXlsx(List<LookupExportRow> rows)
     {
-        var rows = BuildExportRows();
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Flight Lookup");
         sheet.Cell(1, 1).InsertTable(rows);
@@ -273,4 +269,11 @@ public partial class LookupTabViewModel : ViewModelBase
         workbook.SaveAs(ms);
         return ms.ToArray();
     }
+
+    /// <summary>Captures the current matches now (UI thread) and returns a builder that can run on a worker thread.</summary>
+    public Func<string> PrepareMatchesJsonExport() { var comment = BuildComment(); var rows = BuildExportRows(); return () => SerializeJson(comment, rows); }
+    public Func<byte[]> PrepareMatchesXlsxExport() { var rows = BuildExportRows(); return () => SerializeXlsx(rows); }
+
+    public string ExportMatchesToJson() => SerializeJson(BuildComment(), BuildExportRows());
+    public byte[] ExportMatchesToXlsxBytes() => SerializeXlsx(BuildExportRows());
 }

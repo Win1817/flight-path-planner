@@ -4,12 +4,28 @@ using FlightPathPlanner.Services;
 
 namespace FlightPathPlanner.ViewModels;
 
-public partial class OpsRowViewModel(ParsedOps op) : ViewModelBase
+public partial class OpsRowViewModel(ParsedOps op, Action<OpsRowViewModel, bool>? onSelectionChanged = null, bool selected = false) : ViewModelBase
 {
+    private bool _suppressNotification;
+
     public ParsedOps Op { get; } = op;
 
+    /// <summary>A view of the tab's selection set (rows are created on demand and discarded on refilter).</summary>
     [ObservableProperty]
-    public partial bool IsSelected { get; set; }
+    public partial bool IsSelected { get; set; } = selected;
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        if (!_suppressNotification) onSelectionChanged?.Invoke(this, value);
+    }
+
+    /// <summary>Updates the checkbox without echoing back to the selection set (used by "select all").</summary>
+    public void SetSelectedSilently(bool value)
+    {
+        _suppressNotification = true;
+        IsSelected = value;
+        _suppressNotification = false;
+    }
 
     public string OperationPlanId => Op.OperationPlanId;
     public string Title => string.IsNullOrEmpty(Op.Title) ? "Untitled Operation" : Op.Title;

@@ -122,7 +122,7 @@ public sealed class LunaShellTests : IDisposable
     }
 
     [Fact]
-    public void ReloadingASavedFile_SwitchesToItsTab_AndSavedBadgeCountsFiles()
+    public async Task ReloadingASavedFile_SwitchesToItsTab_AndSavedBadgeCountsFiles()
     {
         var vm = new MainViewModel(new LocalStorageService(_root));
         vm.OpsTab.LoadFromJson(OpsJson, "saved-ops.json");
@@ -132,11 +132,11 @@ public sealed class LunaShellTests : IDisposable
         Assert.True(vm.HasSavedBadge);
 
         vm.ActiveTab = AppTab.Saved;
-        vm.AorTab.SavedFiles.Load(vm.AorTab.SavedFiles.Rows[0]);
+        await vm.AorTab.SavedFiles.LoadAsync(vm.AorTab.SavedFiles.Rows[0]);
         Assert.Equal(AppTab.Aors, vm.ActiveTab);
 
         vm.ActiveTab = AppTab.Saved;
-        vm.OpsTab.SavedFiles.Load(vm.OpsTab.SavedFiles.Rows[0]);
+        await vm.OpsTab.SavedFiles.LoadAsync(vm.OpsTab.SavedFiles.Rows[0]);
         Assert.Equal(AppTab.Ops, vm.ActiveTab);
     }
 

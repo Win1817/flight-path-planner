@@ -87,8 +87,6 @@ public sealed class WebView2Host : NativeControlHost
         }
     }
 
-    public void Post(string kind, string payload)
-    {
-        _controller?.CoreWebView2.PostWebMessageAsString(JsonSerializer.Serialize(new { kind, payload }));
-    }
+    /// <summary>Sends one message (already JSON text) to the page.</summary>
+    public void PostJson(string json) => _controller?.CoreWebView2.PostWebMessageAsString(json);
 }

@@ -13,7 +13,7 @@ public static class AorParser
     };
 
     // Legacy "responsibility area" schema: geometry is a single object, limits are top-level.
-    private static bool IsLegacyAor(JsonElement raw) =>
+    public static bool IsLegacyAor(JsonElement raw) =>
         raw.ValueKind == JsonValueKind.Object
         && raw.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String
         && raw.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String
@@ -23,7 +23,7 @@ public static class AorParser
         && raw.TryGetProperty("upperLimit", out var ul) && ul.ValueKind == JsonValueKind.Number;
 
     // Real-world "airspace zone" schema: geometry is an array of {horizontalProjection, lowerLimit, upperLimit, ...}.
-    private static bool IsZoneAor(JsonElement raw)
+    public static bool IsZoneAor(JsonElement raw)
     {
         if (raw.ValueKind != JsonValueKind.Object) return false;
         bool hasName = raw.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String;
@@ -86,12 +86,7 @@ public static class AorParser
         return polygons;
     }
 
-    private static double[][][] ParsePolygonRings(JsonElement polygonCoords) =>
-        polygonCoords.EnumerateArray()
-            .Select(ring => ring.EnumerateArray()
-                .Select(pt => pt.EnumerateArray().Select(n => n.GetDouble()).ToArray())
-                .ToArray())
-            .ToArray();
+    private static double[][][] ParsePolygonRings(JsonElement polygonCoords) => GeometryParser.ParsePolygonCoords(polygonCoords);
 
     private static Aor NormalizeZoneAor(JsonElement raw)
     {
@@ -162,7 +157,7 @@ public static class AorParser
     }
 
     /// <summary>Normalizes a single AoR entry, supporting both known schemas. Returns null if unrecognized/unparseable.</summary>
-    private static Aor? NormalizeAor(JsonElement raw)
+    public static Aor? NormalizeAor(JsonElement raw)
     {
         try
         {
@@ -228,5 +223,14 @@ public static class AorParser
         EffectiveTimeEnd = aor.EffectiveTimeEnd,
         ComputedArea = aor.Geometry.ComputeArea(),
         Color = AorColors[index % AorColors.Length],
+        Ordinal = index,
+        Bounds = aor.Geometry.ComputeBounds(),
+        SearchText = BuildSearchText(aor),
     };
+
+    private static string BuildSearchText(Aor aor)
+    {
+        var reasons = aor.Reasons is { Count: > 0 } r ? string.Join('\u0001', r) : "";
+        return string.Join('\u0001', aor.Name, aor.Designator, aor.Id, aor.Message ?? "", aor.Restriction ?? "", reasons).ToLowerInvariant();
+    }
 }

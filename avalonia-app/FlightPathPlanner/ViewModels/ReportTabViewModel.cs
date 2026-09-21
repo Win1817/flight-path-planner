@@ -116,7 +116,7 @@ public partial class ReportTabViewModel : ViewModelBase
         }
         else
         {
-            var currentOps = _opsTab.FilteredOps.Select(r => r.Op).ToList();
+            var currentOps = _opsTab.FilteredOpData;
             var matched = ReportService.GetOpsInAor(currentOps, SelectedAor.Aor);
             MatchingOps = new ObservableCollection<OpsRowViewModel>(matched.Select(op => new OpsRowViewModel(op)));
         }
@@ -132,42 +132,61 @@ public partial class ReportTabViewModel : ViewModelBase
         public int PlansMatched { get; init; }
     }
 
-    private List<ReportExportRow> BuildExportRows()
+    /// <summary>A report export whose heavy work (matching every AoR against every filtered operation) is done lazily, once, on
+    /// whichever thread first asks — so JSON, XLSX and the local copy of one export share a single computation.</summary>
+    public sealed class SummaryExport
     {
-        var currentOps = _opsTab.FilteredOps.Select(r => r.Op).ToList();
-        var summary = ReportService.GetAorReportSummary(_aorTab.AllAors, currentOps);
-        return summary.Select(s => new ReportExportRow
+        private readonly Lazy<List<ReportExportRow>> _rows;
+
+        internal SummaryExport(IReadOnlyList<ParsedAor> aors, IReadOnlyList<ParsedOps> ops) =>
+            _rows = new Lazy<List<ReportExportRow>>(() =>
+                ReportService.GetAorReportSummary(aors, ops).Select(s => new ReportExportRow
+                {
+                    GeozoneId = string.IsNullOrEmpty(s.Aor.Designator) ? s.Aor.Id : s.Aor.Designator,
+                    Name = s.Aor.Name,
+                    Restriction = s.Aor.Restriction ?? "",
+                    PlansMatched = s.MatchCount,
+                }).ToList());
+
+        public string BuildJson() =>
+            JsonSerializer.Serialize(new { comment = $"Total number of geozones: {_rows.Value.Count}", data = _rows.Value }, new JsonSerializerOptions { WriteIndented = true });
+
+        public byte[] BuildXlsx()
         {
-            GeozoneId = string.IsNullOrEmpty(s.Aor.Designator) ? s.Aor.Id : s.Aor.Designator,
-            Name = s.Aor.Name,
-            Restriction = s.Aor.Restriction ?? "",
-            PlansMatched = s.MatchCount,
-        }).ToList();
+            using var workbook = new XLWorkbook();
+            var sheet = workbook.Worksheets.Add("Report");
+            sheet.Cell(1, 1).InsertTable(_rows.Value);
+            sheet.Columns().AdjustToContents();
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            return ms.ToArray();
+        }
     }
+
+    /// <summary>Captures the immutable AoR and operation snapshots now (UI thread); the returned export can be built on a worker thread.</summary>
+    public SummaryExport PrepareSummaryExport() => new(_aorTab.AllAors, _opsTab.FilteredOpData);
+
+    /// <summary>Keeps a local copy of a finished export (always JSON, as the web app did).</summary>
+    public async Task SaveLocalCopyAsync(SummaryExport export)
+    {
+        var json = await Task.Run(export.BuildJson);
+        await SavedFiles.SaveFromSourceAsync(Services.Import.ImportSource.FromText(LocalCopyName, json));
+    }
+
+    private static string LocalCopyName => $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.json";
 
     public string ExportSummaryToJson()
     {
-        var rows = BuildExportRows();
-        var exportObject = new { comment = $"Total number of geozones: {rows.Count}", data = rows };
-        var json = JsonSerializer.Serialize(exportObject, new JsonSerializerOptions { WriteIndented = true });
-        SaveLocalCopy(json);
+        var export = PrepareSummaryExport();
+        var json = export.BuildJson();
+        SavedFiles.SaveNew(LocalCopyName, json);
         return json;
     }
 
-    private void SaveLocalCopy(string json) =>
-        SavedFiles.SaveNew($"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.json", json);
-
     public byte[] ExportSummaryToXlsxBytes()
     {
-        var rows = BuildExportRows();
-        SaveLocalCopy(JsonSerializer.Serialize(
-            new { comment = $"Total number of geozones: {rows.Count}", data = rows }, new JsonSerializerOptions { WriteIndented = true }));
-        using var workbook = new XLWorkbook();
-        var sheet = workbook.Worksheets.Add("Report");
-        sheet.Cell(1, 1).InsertTable(rows);
-        sheet.Columns().AdjustToContents();
-        using var ms = new MemoryStream();
-        workbook.SaveAs(ms);
-        return ms.ToArray();
+        var export = PrepareSummaryExport();
+        SavedFiles.SaveNew(LocalCopyName, export.BuildJson());
+        return export.BuildXlsx();
     }
 }

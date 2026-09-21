@@ -211,6 +211,18 @@ Not present in this repository.
 7. Open **Saved Locally** (bottom of the navigation rail) to reload an earlier upload (this jumps to the OPS or AoRs tab), archive or restore files, or delete them.
 8. Uploads, exports, warnings, errors and file actions are confirmed by short notifications at the top of the sidebar panel.
 
+## Large Datasets
+
+GeoZone / AoR (and OPS) files with tens of thousands of records import without freezing the window:
+
+- **Streaming import** – files are read as a stream and parsed one record at a time on a background thread (`Services/Import`). Malformed records are skipped and counted; all supported schemas still work.
+- **Progress and cancel** – stage, counts, percentage, elapsed time and ETA are shown; Cancel leaves existing data untouched. Files over 40 MB show a heads-up before importing (never rejected).
+- **Virtualised lists and debounced search** – rows are created lazily; search runs off the UI thread on a precomputed index (250 ms debounce).
+- **Viewport map rendering** – above 1,500 shapes the map only receives what is in view (NetTopologySuite STRtree), sent as chunked, coordinate-rounded GeoJSON; zoom in to see more. Diagnostics are appended to `import.log` next to the executable.
+- **Benchmarks** – `FPP_BENCH=1 dotnet test --filter ImportBenchmarkTests`; `FPP_GEN=<dir>` writes sample 1k/25k/50k zone files.
+
+Measured on a 25,000-zone (58 MB) file: import ~3 s in the background with 54 progress updates; UI kept ticking (max stall 325 ms vs. a 5 s freeze with the previous blocking path); peak working set ~500 MB.
+
 ## Local Data
 
 `LocalStorageService` writes plain files:

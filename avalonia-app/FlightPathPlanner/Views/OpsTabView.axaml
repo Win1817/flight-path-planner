@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FlightPathPlanner.ViewModels"
              xmlns:controls="using:FlightPathPlanner.Controls"
+             xmlns:views="using:FlightPathPlanner.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="344"
@@ -21,17 +22,27 @@
         <TextBlock Text="{Binding UploadedFileName}" Classes="cardtitle" />
         <TextBlock Text="OPS data" Classes="meta" />
       </StackPanel>
-      <Button Grid.Column="2" Content="Replace" Classes="small" Click="UploadButton_Click" VerticalAlignment="Center"
+      <Button Grid.Column="2" Content="Replace" Classes="small" Click="UploadButton_Click" IsEnabled="{Binding Import.CanStart}" VerticalAlignment="Center"
               AutomationProperties.Name="Upload a different OPS JSON file" />
     </Grid>
 
     <!-- Loading -->
-    <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" IsVisible="{Binding IsBusy}">
-      <StackPanel Spacing="8">
-        <TextBlock Text="{Binding BusyText}" Classes="secondary" />
-        <ProgressBar IsIndeterminate="True" />
+    <!-- Large-file notice (files of about 40 MB or more), before anything is loaded -->
+    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" BorderBrush="#66A78BFA" IsVisible="{Binding HasPendingLargeSource}">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+          <controls:LunaIcon Classes="accent" Data="{StaticResource IconInfo}" VerticalAlignment="Top" />
+          <TextBlock Text="Large file detected" Classes="cardtitle" VerticalAlignment="Center" Grid.Column="1" />
+        </Grid>
+        <TextBlock Text="{Binding PendingLargeText}" Classes="secondary" TextWrapping="Wrap" />
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <Button Classes="primary" Content="Continue" Command="{Binding ConfirmLargeImportCommand}" HorizontalAlignment="Stretch" />
+          <Button Grid.Column="1" Content="Cancel" Command="{Binding CancelLargeImportCommand}" HorizontalAlignment="Stretch" />
+        </Grid>
       </StackPanel>
     </Border>
+
+    <views:ImportPanel DockPanel.Dock="Top" DataContext="{Binding Import}" Margin="0,0,0,12" />
 
     <!-- Error -->
     <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" BorderBrush="#40FB7185"
@@ -158,7 +169,7 @@
       </Border>
       <TextBlock Text="No OPS loaded" Classes="section" HorizontalAlignment="Center" Margin="0,6,0,0" />
       <TextBlock Text="Upload an OPS JSON file to begin." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
-      <Button Classes="primary" Click="UploadButton_Click" HorizontalAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Upload OPS JSON">
+      <Button Classes="primary" Click="UploadButton_Click" IsEnabled="{Binding Import.CanStart}" HorizontalAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Upload OPS JSON">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <controls:LunaIcon Data="{StaticResource IconUpload}" />
           <TextBlock Text="Upload OPS JSON" />
@@ -166,48 +177,53 @@
       </Button>
     </StackPanel>
 
-    <!-- Scrollable main content -->
-    <ScrollViewer Padding="0,0,12,0" IsVisible="{Binding HasOps}">
-      <StackPanel Spacing="14">
+    <!-- Filters stay put; only the (virtualised) list scrolls, so thousands of operations never become thousands of visuals. -->
+    <DockPanel IsVisible="{Binding HasOps}">
+      <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,10">
 
-        <TextBox Classes="search" Watermark="Search operations..." Text="{Binding SearchQuery}"
-                 AutomationProperties.Name="Search operations">
-          <TextBox.InnerLeftContent>
-            <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
-          </TextBox.InnerLeftContent>
-        </TextBox>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox Classes="search" Watermark="Search operations..." Text="{Binding SearchQuery}" AutomationProperties.Name="Search operations">
+            <TextBox.InnerLeftContent>
+              <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <ToggleButton Grid.Column="1" Classes="chip" Content="Filters" IsChecked="{Binding FiltersVisible}" VerticalAlignment="Center"
+                        AutomationProperties.Name="Show or hide filters" />
+        </Grid>
 
-        <StackPanel Spacing="8" IsVisible="{Binding HasClosureReasons}">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="CLOSURE REASON" Classes="overline" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Clear" Classes="ghost small" Command="{Binding ClearClosureReasonsCommand}"
-                    AutomationProperties.Name="Clear closure reason filter" />
-          </Grid>
-          <ItemsControl ItemsSource="{Binding ClosureReasonChips}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ClosureReasonChipViewModel">
-                <ToggleButton Classes="chip" Content="{Binding Reason}" IsChecked="{Binding IsSelected}" Margin="0,0,6,6" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-
-        <StackPanel Spacing="8" IsVisible="{Binding HasOps}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <controls:LunaIcon Classes="small" Data="{StaticResource IconCalendar}" />
-            <TextBlock Text="TIMEFRAME" Classes="overline" VerticalAlignment="Center" />
+        <StackPanel Spacing="14" IsVisible="{Binding FiltersVisible}">
+          <StackPanel Spacing="8" IsVisible="{Binding HasClosureReasons}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="CLOSURE REASON" Classes="overline" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Content="Clear" Classes="ghost small" Command="{Binding ClearClosureReasonsCommand}"
+                      AutomationProperties.Name="Clear closure reason filter" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding ClosureReasonChips}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ClosureReasonChipViewModel">
+                  <ToggleButton Classes="chip" Content="{Binding Reason}" IsChecked="{Binding IsSelected}" Margin="0,0,6,6" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
-          <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
-            <TextBlock Text="From" Classes="secondary" VerticalAlignment="Center" />
-            <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeFrom}" AutomationProperties.Name="From date" />
-          </Grid>
-          <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
-            <TextBlock Text="To" Classes="secondary" VerticalAlignment="Center" />
-            <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeTo}" AutomationProperties.Name="To date" />
-          </Grid>
+
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <controls:LunaIcon Classes="small" Data="{StaticResource IconCalendar}" />
+              <TextBlock Text="TIMEFRAME" Classes="overline" VerticalAlignment="Center" />
+            </StackPanel>
+            <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
+              <TextBlock Text="From" Classes="secondary" VerticalAlignment="Center" />
+              <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeFrom}" AutomationProperties.Name="From date" />
+            </Grid>
+            <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
+              <TextBlock Text="To" Classes="secondary" VerticalAlignment="Center" />
+              <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeTo}" AutomationProperties.Name="To date" />
+            </Grid>
+          </StackPanel>
         </StackPanel>
 
         <Grid ColumnDefinitions="*,Auto">
@@ -215,55 +231,54 @@
           <Button Grid.Column="1" Content="{Binding SelectAllLabel}" Classes="ghost small" Command="{Binding ToggleSelectAllCommand}" />
         </Grid>
 
-        <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,16,0,0" IsVisible="{Binding HasNoFilteredOps}">
+        <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,10,0,0" IsVisible="{Binding HasNoFilteredOps}">
           <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
           <TextBlock Text="No operations match" Classes="cardtitle" HorizontalAlignment="Center" />
           <TextBlock Text="Try a different search, closure reason or date range." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
-
-        <ItemsControl ItemsSource="{Binding FilteredOps}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:OpsRowViewModel">
-              <Border Classes="card interactive" Classes.selected="{Binding IsSelected}" Padding="12" Margin="0,0,0,8">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                  <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" MinWidth="0"
-                            AutomationProperties.Name="Select operation" />
-                  <StackPanel Grid.Column="1" Spacing="4" Tag="{Binding}" Tapped="OpRow_Tapped">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                      <Ellipse Classes="dot" Fill="{Binding Color}" VerticalAlignment="Center" />
-                      <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="cardtitle" />
-                    </Grid>
-                    <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Description}" Classes="secondary" MaxLines="2" TextWrapping="Wrap"
-                               TextTrimming="CharacterEllipsis" IsVisible="{Binding HasDescription}" />
-                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="14" Margin="0,2,0,0">
-                      <StackPanel Orientation="Horizontal" Spacing="6">
-                        <controls:LunaIcon Classes="small" Data="{StaticResource IconClock}" />
-                        <TextBlock Text="{Binding StartTimeDisplay}" Classes="meta" />
-                      </StackPanel>
-                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                        <controls:LunaIcon Classes="small" Data="{StaticResource IconLayers}" />
-                        <TextBlock Text="{Binding AreaDisplay}" Classes="meta" />
-                      </StackPanel>
-                    </Grid>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Spacing="6" HorizontalAlignment="Right">
-                    <Border Classes="pill success" HorizontalAlignment="Right" IsVisible="{Binding IsActiveStatus}"><TextBlock Text="Active" /></Border>
-                    <Border Classes="pill warning" HorizontalAlignment="Right" IsVisible="{Binding IsPendingStatus}"><TextBlock Text="Pending" /></Border>
-                    <Border Classes="pill" HorizontalAlignment="Right" IsVisible="{Binding IsExpiredStatus}"><TextBlock Text="Expired" /></Border>
-                    <Button Classes="icon compact ghost danger" Tag="{Binding}" Click="DeleteOpButton_Click" HorizontalAlignment="Right"
-                            AutomationProperties.Name="Remove operation" ToolTip.Tip="Remove from this session">
-                      <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />
-                    </Button>
-                  </StackPanel>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
       </StackPanel>
-    </ScrollViewer>
+
+      <ListBox Classes="cards" ItemsSource="{Binding FilteredOps}" AutomationProperties.Name="Operations">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:OpsRowViewModel">
+            <Border Classes="card interactive" Classes.selected="{Binding IsSelected}" Padding="12" Margin="0,0,10,8">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" MinWidth="0"
+                          AutomationProperties.Name="Select operation" />
+                <StackPanel Grid.Column="1" Spacing="4" Tag="{Binding}" Tapped="OpRow_Tapped">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Ellipse Classes="dot" Fill="{Binding Color}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="cardtitle" />
+                  </Grid>
+                  <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Description}" Classes="secondary" MaxLines="2" TextWrapping="Wrap"
+                             TextTrimming="CharacterEllipsis" IsVisible="{Binding HasDescription}" />
+                  <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="14" Margin="0,2,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <controls:LunaIcon Classes="small" Data="{StaticResource IconClock}" />
+                      <TextBlock Text="{Binding StartTimeDisplay}" Classes="meta" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                      <controls:LunaIcon Classes="small" Data="{StaticResource IconLayers}" />
+                      <TextBlock Text="{Binding AreaDisplay}" Classes="meta" />
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="6" HorizontalAlignment="Right">
+                  <Border Classes="pill success" HorizontalAlignment="Right" IsVisible="{Binding IsActiveStatus}"><TextBlock Text="Active" /></Border>
+                  <Border Classes="pill warning" HorizontalAlignment="Right" IsVisible="{Binding IsPendingStatus}"><TextBlock Text="Pending" /></Border>
+                  <Border Classes="pill" HorizontalAlignment="Right" IsVisible="{Binding IsExpiredStatus}"><TextBlock Text="Expired" /></Border>
+                  <Button Classes="icon compact ghost danger" Tag="{Binding}" Click="DeleteOpButton_Click" HorizontalAlignment="Right"
+                          AutomationProperties.Name="Remove operation" ToolTip.Tip="Remove from this session">
+                    <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
     </Grid>
 
   </DockPanel>

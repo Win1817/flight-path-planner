@@ -37,6 +37,7 @@ public sealed record SavedFile(StorageCategory Category, string FileName, bool I
 public sealed class LocalStorageService
 {
     private const string ArchiveFolder = "Archive";
+    private const string PartialSuffix = ".partial";
     private readonly string _root;
 
     public LocalStorageService(string rootDirectory)
@@ -108,6 +109,39 @@ public sealed class LocalStorageService
         return new SavedFile(category, fileName, false, path, new FileInfo(path).Length);
     }
 
+    /// <summary>Copies a source stream into the category folder without holding it in memory. The copy is written to a temporary
+    /// name and moved into place only when complete, so an interrupted or cancelled save never leaves a truncated file behind.</summary>
+    public async Task<SavedFile> SaveStreamAsync(StorageCategory category, string originalName, Func<Stream> openSource, CancellationToken ct = default)
+    {
+        var dir = CategoryDirectory(category, archived: false);
+        Directory.CreateDirectory(dir);
+
+        var stamp = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH-mm-ss-fff'Z'", CultureInfo.InvariantCulture);
+        var fileName = $"{stamp}__{SanitizeFileName(originalName)}";
+        var path = Path.Combine(dir, fileName);
+        var temp = path + PartialSuffix;
+
+        try
+        {
+            await using (var source = openSource())
+            await using (var destination = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true))
+            {
+                await source.CopyToAsync(destination, 1 << 16, ct).ConfigureAwait(false);
+            }
+            File.Move(temp, path);
+        }
+        catch
+        {
+            try { File.Delete(temp); } catch { /* best effort */ }
+            throw;
+        }
+        return new SavedFile(category, fileName, false, path, new FileInfo(path).Length);
+    }
+
+    /// <summary>Opens a saved file for streaming reads.</summary>
+    public Stream OpenRead(SavedFile file) =>
+        new FileStream(Resolve(file), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true);
+
     /// <summary>Saved files for a category, newest first.</summary>
     public IReadOnlyList<SavedFile> List(StorageCategory category, bool archived)
     {
@@ -115,7 +149,7 @@ public sealed class LocalStorageService
         if (!Directory.Exists(dir)) return Array.Empty<SavedFile>();
 
         return new DirectoryInfo(dir).EnumerateFiles()
-            .Where(f => !f.Name.StartsWith('.'))
+            .Where(f => !f.Name.StartsWith('.') && !f.Name.EndsWith(PartialSuffix, StringComparison.Ordinal))
             .Select(f => new SavedFile(category, f.Name, archived, f.FullName, f.Length))
             .OrderByDescending(f => f.SavedAtUtc ?? DateTime.MinValue)
             .ThenByDescending(f => f.FileName, StringComparer.Ordinal)

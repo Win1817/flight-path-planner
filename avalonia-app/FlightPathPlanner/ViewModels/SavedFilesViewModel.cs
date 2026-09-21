@@ -3,6 +3,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FlightPathPlanner.Services;
+using FlightPathPlanner.Services.Import;
 
 namespace FlightPathPlanner.ViewModels;
 
@@ -12,12 +13,12 @@ public partial class SavedFilesViewModel : ViewModelBase
 {
     private readonly LocalStorageService? _storage;
     private readonly StorageCategory _category;
-    private readonly Func<string, string, bool>? _loader;
+    private readonly Func<ImportSource, Task<bool>>? _loader;
 
-    /// <param name="loader">Called with (json text, original file name) when the user reloads a file; returns whether it
+    /// <param name="loader">Called with a streaming source for the saved file when the user reloads it; returns whether it
     /// loaded. Null for categories that can't be reloaded (reports).</param>
     /// <param name="title">Section title, e.g. "OPS uploads".</param>
-    public SavedFilesViewModel(LocalStorageService? storage, StorageCategory category, Func<string, string, bool>? loader = null,
+    public SavedFilesViewModel(LocalStorageService? storage, StorageCategory category, Func<ImportSource, Task<bool>>? loader = null,
         string? title = null)
     {
         _storage = storage;
@@ -143,12 +144,34 @@ public partial class SavedFilesViewModel : ViewModelBase
         Refresh();
     }
 
-    public void Load(SavedFileRowViewModel row)
+    /// <summary>Saves a copy of an uploaded file by streaming it to disk (never through memory). Failures are shown in the panel.</summary>
+    public async Task SaveFromSourceAsync(ImportSource source, CancellationToken ct = default)
+    {
+        if (_storage == null) return;
+        try
+        {
+            await _storage.SaveStreamAsync(_category, source.Name, source.Open, ct);
+            StatusMessage = null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Couldn't save a local copy: {ex.Message}";
+        }
+        Refresh();
+    }
+
+    public async Task LoadAsync(SavedFileRowViewModel row)
     {
         if (_storage == null || _loader == null) return;
         try
         {
-            var ok = _loader(_storage.ReadText(row.File), row.File.DisplayName);
+            var file = row.File;
+            var source = new ImportSource(file.DisplayName, file.SizeBytes, () => _storage.OpenRead(file));
+            var ok = await _loader(source);
             StatusMessage = ok ? null : $"{row.DisplayName} couldn't be loaded (see the error above).";
             if (ok) Loaded?.Invoke();
         }

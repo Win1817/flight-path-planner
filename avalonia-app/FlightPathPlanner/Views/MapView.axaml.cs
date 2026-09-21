@@ -1,8 +1,11 @@
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using FlightPathPlanner.Services;
 #if USE_CEF
 using Xilium.CefGlue.Avalonia;
 #endif
@@ -10,7 +13,7 @@ using Xilium.CefGlue.Avalonia;
 namespace FlightPathPlanner.Views;
 
 /// <summary>Hosts the MapLibre page. Windows uses the system's Edge WebView2 (<see cref="WebView2Host"/>);
-/// Linux/macOS use embedded Chromium (CefGlue). Both drive the same Assets/map page.</summary>
+/// Linux/macOS use embedded Chromium (CefGlue). Both drive the same embedded map page through the same JSON messages.</summary>
 public partial class MapView : UserControl
 {
 #if USE_CEF
@@ -18,11 +21,12 @@ public partial class MapView : UserControl
 #endif
     private readonly WebView2Host? _web;
     private bool _pageReady;
-    private string? _lastData;
+    private MapPayload? _lastPayload;
     private IReadOnlyCollection<string>? _lastHighlights;
 
-    public event Action<string, string>? ZoneClicked; // (id, dataType: "ops" | "aor")
-    public event Action<string?>? ZoneHovered;         // id, or null when hover ends
+    public event Action<string, string>? ZoneClicked;               // (id, dataType: "ops" | "aor")
+    public event Action<string?>? ZoneHovered;                       // id, or null when hover ends
+    public event Action<double, double, double, double>? ViewportChanged; // west, south, east, north
 
     public MapView()
     {
@@ -84,7 +88,7 @@ public partial class MapView : UserControl
     private void OnPageReady()
     {
         _pageReady = true;
-        if (_lastData != null) UpdateData(_lastData);
+        if (_lastPayload != null) Send(_lastPayload);
         if (_lastHighlights != null) UpdateHighlights(_lastHighlights);
     }
 
@@ -106,6 +110,11 @@ public partial class MapView : UserControl
                     var id = root.GetProperty("id").GetString();
                     ZoneHovered?.Invoke(string.IsNullOrEmpty(id) ? null : id);
                     break;
+                case "viewport":
+                    ViewportChanged?.Invoke(
+                        root.GetProperty("west").GetDouble(), root.GetProperty("south").GetDouble(),
+                        root.GetProperty("east").GetDouble(), root.GetProperty("north").GetDouble());
+                    break;
             }
         }
         catch (Exception ex)
@@ -114,24 +123,49 @@ public partial class MapView : UserControl
         }
     }
 
-    public void UpdateData(string viewerGeoJson)
+    /// <summary>Sends an update to the page as begin / chunk... / end messages, so a large update is many modest messages rather
+    /// than one giant string. Remembers the latest payload to replay if the page isn't ready yet.</summary>
+    public void PushPayload(MapPayload payload)
     {
-        _lastData = viewerGeoJson;
-        if (!_pageReady) return;
-        if (_web != null) _web.Post("data", viewerGeoJson);
-#if USE_CEF
-        else _cef?.ExecuteJavaScript($"window.updateMapData({JsonSerializer.Serialize(viewerGeoJson)});", null, 0);
-#endif
+        _lastPayload = payload;
+        if (_pageReady) Send(payload);
     }
 
+    private static string Num(double v) => v.ToString("R", CultureInfo.InvariantCulture);
+
+    private void Send(MapPayload p)
+    {
+        var begin = new StringBuilder(256);
+        begin.Append("{\"kind\":\"begin\",\"version\":").Append(p.Version)
+             .Append(",\"viewportMode\":").Append(p.ViewportMode ? "true" : "false")
+             .Append(",\"fit\":").Append(p.Fit ? "true" : "false")
+             .Append(",\"fitBounds\":").Append(p.FitBounds is { Length: 4 } b ? $"[{Num(b[0])},{Num(b[1])},{Num(b[2])},{Num(b[3])}]" : "null")
+             .Append(",\"shown\":").Append(p.Shown)
+             .Append(",\"inView\":").Append(p.InView)
+             .Append(",\"total\":").Append(p.Total)
+             .Append(",\"anyHighlight\":").Append(p.AnyHighlight ? "true" : "false")
+             .Append(",\"needsViewport\":").Append(p.NeedsViewport ? "true" : "false")
+             .Append('}');
+        Post(begin.ToString());
+
+        foreach (var chunk in p.Chunks)
+            Post($"{{\"kind\":\"chunk\",\"version\":{p.Version},\"features\":{chunk}}}");
+
+        Post($"{{\"kind\":\"end\",\"version\":{p.Version}}}");
+    }
+
+    /// <summary>Hovered / active ids to emphasise (selection is flagged inside the map data itself).</summary>
     public void UpdateHighlights(IReadOnlyCollection<string> ids)
     {
         _lastHighlights = ids;
-        if (!_pageReady) return;
-        var idsJson = JsonSerializer.Serialize(ids);
-        if (_web != null) _web.Post("highlights", idsJson);
+        if (_pageReady) Post($"{{\"kind\":\"highlights\",\"ids\":{JsonSerializer.Serialize(ids)}}}");
+    }
+
+    private void Post(string json)
+    {
+        if (_web != null) { _web.PostJson(json); return; }
 #if USE_CEF
-        else _cef?.ExecuteJavaScript($"window.updateHighlights({JsonSerializer.Serialize(idsJson)});", null, 0);
+        _cef?.ExecuteJavaScript($"window.lunaHost({JsonSerializer.Serialize(json)});", null, 0);
 #endif
     }
 
@@ -147,6 +181,11 @@ public partial class MapView : UserControl
         public void OnZoneHover(string id)
         {
             Dispatcher.UIThread.Post(() => owner.ZoneHovered?.Invoke(string.IsNullOrEmpty(id) ? null : id));
+        }
+
+        public void OnViewport(double west, double south, double east, double north)
+        {
+            Dispatcher.UIThread.Post(() => owner.ViewportChanged?.Invoke(west, south, east, north));
         }
     }
 #endif

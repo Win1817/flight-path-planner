@@ -1,4 +1,5 @@
 using FlightPathPlanner.Services;
+using Envelope = NetTopologySuite.Geometries.Envelope;
 
 namespace FlightPathPlanner.Models;
 
@@ -14,4 +15,26 @@ public sealed class Geometry
     public required double[][][][] Polygons { get; init; }
 
     public double ComputeArea() => GeoMath.MultiPolygonArea(Polygons);
+
+    /// <summary>Lon/lat bounding box of every vertex, or a null envelope when the geometry has no points.</summary>
+    public Envelope ComputeBounds()
+    {
+        var env = new Envelope();
+        foreach (var polygon in Polygons)
+            foreach (var ring in polygon)
+                foreach (var point in ring)
+                    env.ExpandToInclude(point[0], point[1]);
+        return env;
+    }
+
+    public int VertexCount
+    {
+        get
+        {
+            int count = 0;
+            foreach (var polygon in Polygons)
+                foreach (var ring in polygon) count += ring.Length;
+            return count;
+        }
+    }
 }

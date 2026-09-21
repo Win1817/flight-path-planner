@@ -19,7 +19,7 @@ public sealed class SavedFilesViewModelTests : IDisposable
     """;
 
     [Fact]
-    public void UploadingOps_SavesACopy_ThatCanBeReloadedFromThePanel()
+    public async Task UploadingOps_SavesACopy_ThatCanBeReloadedFromThePanel()
     {
         var storage = new LocalStorageService(_root);
         var ops = new OpsTabViewModel(storage);
@@ -34,7 +34,7 @@ public sealed class SavedFilesViewModelTests : IDisposable
         ops.DeleteSelectedCommand.Execute(null);
         Assert.False(ops.HasOps);
 
-        ops.SavedFiles.Load(ops.SavedFiles.Rows[0]);
+        await ops.SavedFiles.LoadAsync(ops.SavedFiles.Rows[0]);
 
         Assert.True(ops.HasOps);
         Assert.Equal(1, ops.SavedFiles.ActiveCount); // reloading must not save a duplicate
