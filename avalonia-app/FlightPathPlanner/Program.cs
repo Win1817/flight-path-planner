@@ -13,10 +13,19 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        InitializeCef();
+        try
+        {
+            InitializeCef();
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            // WinExe has no console, so startup failures would otherwise vanish silently.
+            File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), ex.ToString());
+            throw;
+        }
     }
 
     private static void InitializeCef()
@@ -29,9 +38,15 @@ sealed class Program
             // step). Disabling it on Linux is the deliberate tradeoff for staying fully
             // portable there; Windows/macOS sandboxing doesn't need this and stays enabled.
             NoSandbox = OperatingSystem.IsLinux(),
-            ResourcesDirPath = resourcesDir,
-            LocalesDirPath = Path.Combine(resourcesDir, "locales"),
         };
+
+        // Explicit resource paths were needed for the Linux layout; on Windows/macOS CefGlue
+        // copies resources next to the exe and its own defaults must be used.
+        if (OperatingSystem.IsLinux())
+        {
+            settings.ResourcesDirPath = resourcesDir;
+            settings.LocalesDirPath = Path.Combine(resourcesDir, "locales");
+        }
 
         var extraArgs = OperatingSystem.IsLinux()
             ? new[]
