@@ -25,6 +25,12 @@
 </head>
 <body>
   <div id="map"></div>
+  <pre id="err" style="position:absolute;left:12px;top:12px;margin:0;color:#f87171;font:12px monospace;white-space:pre-wrap;z-index:10"></pre>
+  <script>
+    window.addEventListener('error', function (e) {
+      document.getElementById('err').textContent += 'JS error: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')\n';
+    });
+  </script>
   <script src="maplibre-gl.js"></script>
   <script src="map.js"></script>
 </body>

@@ -32,26 +32,50 @@ public partial class MapView : UserControl
         _browser = new AvaloniaCefBrowser();
         _browser.RegisterJavascriptObject(new JsBridge(this), "csharpBridge");
 
-        _browser.ConsoleMessage += (_, args) =>
+        _browser.ConsoleMessage += (_, args) => Log($"console: {args.Message} ({args.Source}:{args.Line})");
+        _browser.LoadError += (_, args) => Log($"load error: {args.ErrorText} {args.FailedUrl}");
+        _browser.LoadStart += (_, _) => Log("load start");
+        _browser.LoadEnd += (_, _) =>
         {
-            // Surface JS errors for debugging; the map page has no other error channel.
-            Console.WriteLine($"[map console] {args.Message} ({args.Source}:{args.Line})");
+            Log("load end");
+            Dispatcher.UIThread.Post(() =>
+            {
+                _pageLoaded = true;
+                if (_lastData != null) UpdateData(_lastData);
+                if (_lastHighlights != null) UpdateHighlights(_lastHighlights);
+            });
         };
+        _browser.BrowserInitialized += () => Log("browser initialized");
 
         var mapHtmlPath = Path.Combine(AppContext.BaseDirectory, "Assets", "map", "index.html");
+        Log($"navigating to {mapHtmlPath} (exists: {File.Exists(mapHtmlPath)})");
         _browser.Address = new Uri(mapHtmlPath).AbsoluteUri;
 
         RootGrid.Children.Add(_browser);
     }
 
+    private bool _pageLoaded;
+    private string? _lastData;
+    private IReadOnlyCollection<string>? _lastHighlights;
+
+    private static void Log(string message)
+    {
+        try { File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "map.log"), $"[{DateTime.Now:HH:mm:ss.fff}] {message}{Environment.NewLine}"); }
+        catch { /* logging must never take the app down */ }
+    }
+
     public void UpdateData(string viewerGeoJson)
     {
+        _lastData = viewerGeoJson;
+        if (!_pageLoaded) return;
         var script = $"window.updateMapData({JsonSerializer.Serialize(viewerGeoJson)});";
         _browser?.ExecuteJavaScript(script, null, 0);
     }
 
     public void UpdateHighlights(IReadOnlyCollection<string> ids)
     {
+        _lastHighlights = ids;
+        if (!_pageLoaded) return;
         var idsJson = JsonSerializer.Serialize(ids);
         var script = $"window.updateHighlights({JsonSerializer.Serialize(idsJson)});";
         _browser?.ExecuteJavaScript(script, null, 0);

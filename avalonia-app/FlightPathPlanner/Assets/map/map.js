@@ -66,6 +66,7 @@ function initMap() {
         },
       },
       layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': '#0b0f19' } },
         { id: 'carto-dark-layer', type: 'raster', source: 'carto-dark', minzoom: 0, maxzoom: 20 },
       ],
     },
