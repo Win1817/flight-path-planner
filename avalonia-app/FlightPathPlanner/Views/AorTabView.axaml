@@ -149,6 +149,9 @@
       </Border>
     </Border>
 
+    <!-- The last DockPanel child fills the panel; both states live in one Grid so the empty state centres in the whole panel,
+         not in a docked strip. -->
+    <Grid>
     <!-- Empty state -->
     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260" IsVisible="{Binding !HasAors}">
       <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource LunaAccentTintBrush}" HorizontalAlignment="Center">
@@ -219,6 +222,7 @@
 
       </StackPanel>
     </ScrollViewer>
+    </Grid>
 
   </DockPanel>
 
