@@ -103,7 +103,7 @@
     <ScrollViewer>
       <StackPanel Spacing="10">
 
-        <TextBox PlaceholderText="Search OPS by title, ID, operator..." Text="{Binding SearchQuery}" />
+        <TextBox Watermark="Search OPS by title, ID, operator..." Text="{Binding SearchQuery}" />
 
         <StackPanel Spacing="6" IsVisible="{Binding HasClosureReasons}">
           <Grid ColumnDefinitions="*,Auto">

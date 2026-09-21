@@ -120,7 +120,7 @@
     <ScrollViewer>
       <StackPanel Spacing="10">
 
-        <TextBox PlaceholderText="Search AoRs by name, designator, message..." Text="{Binding SearchQuery}" />
+        <TextBox Watermark="Search AoRs by name, designator, message..." Text="{Binding SearchQuery}" />
 
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasAors}">
           <TextBlock Grid.Column="0" Text="AoRs" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />

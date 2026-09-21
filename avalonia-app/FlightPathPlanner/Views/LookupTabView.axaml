@@ -25,7 +25,7 @@
           <TextBlock Text="Location" FontSize="11" Foreground="#9aa4b8" />
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
             <TextBox Grid.Column="0" Name="QueryTextBox" Text="{Binding Query}"
-                     PlaceholderText="Address, city, or lat:long" KeyDown="QueryTextBox_KeyDown" />
+                     Watermark="Address, city, or lat:long" KeyDown="QueryTextBox_KeyDown" />
             <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}"
                     IsEnabled="{Binding CanSearch}" />
           </Grid>

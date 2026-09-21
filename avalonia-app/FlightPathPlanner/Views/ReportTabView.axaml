@@ -39,7 +39,7 @@
           <TextBlock Text="Area of Responsibility" FontSize="11" Foreground="#9aa4b8" />
           <TextBlock Text="{Binding SelectedAor.DisplayLabel}" FontSize="12" FontWeight="SemiBold"
                      IsVisible="{Binding HasSelectedAor}" />
-          <TextBox PlaceholderText="Search AoRs..." Text="{Binding AorSearchQuery}" />
+          <TextBox Watermark="Search AoRs..." Text="{Binding AorSearchQuery}" />
           <ItemsControl ItemsSource="{Binding AorOptions}" MaxHeight="180">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ReportAorOptionViewModel">
