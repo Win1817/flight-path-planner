@@ -39,11 +39,10 @@ sealed class Program
         var resourcesDir = Path.Combine(AppContext.BaseDirectory, "Resources");
         var settings = new CefSettings
         {
-            // CEF's sandbox needs a SUID-root helper binary (chrome-sandbox) that a portable,
-            // no-install app cannot set up (that requires a privileged one-time chown/chmod
-            // step). Disabling it on Linux is the deliberate tradeoff for staying fully
-            // portable there; Windows/macOS sandboxing doesn't need this and stays enabled.
-            NoSandbox = OperatingSystem.IsLinux(),
+            // Linux needs a SUID-root helper for the sandbox, which a portable app can't install; on Windows
+            // the sandboxed GPU/network helpers were crashing at startup. The app only loads its own bundled
+            // map page plus map tiles, so the sandbox is disabled everywhere.
+            NoSandbox = true,
             LogSeverity = CefLogSeverity.Warning,
             LogFile = Path.Combine(AppContext.BaseDirectory, "cef.log"),
         };
@@ -56,22 +55,26 @@ sealed class Program
             settings.LocalesDirPath = Path.Combine(resourcesDir, "locales");
         }
 
-        var extraArgs = OperatingSystem.IsLinux()
-            ? new[]
-            {
-                // "no-zygote": the zygote pre-fork optimization needs sandbox/namespace
-                // support this container-like environment doesn't have, and crashes early
-                // (the "Invalid file descriptor to ICU data received" trap) without it.
-                new KeyValuePair<string, string>("no-zygote", ""),
-                new KeyValuePair<string, string>("disable-gpu", ""),
-                new KeyValuePair<string, string>("disable-gpu-compositing", ""),
-                new KeyValuePair<string, string>("disable-software-rasterizer", ""),
-                new KeyValuePair<string, string>("single-process", ""),
-                new KeyValuePair<string, string>("disable-dev-shm-usage", ""),
-            }
-            : Array.Empty<KeyValuePair<string, string>>();
+        // The GPU process crashes repeatedly on some Windows GPU/driver combinations (CEF then aborts with
+        // "GPU process isn't usable"), so use software rendering; the map still works through SwiftShader WebGL.
+        var extraArgs = new List<KeyValuePair<string, string>>
+        {
+            new("disable-gpu", ""),
+            new("disable-gpu-compositing", ""),
+            new("enable-unsafe-swiftshader", ""),
+        };
 
-        CefRuntimeLoader.Initialize(settings, extraArgs);
+        if (OperatingSystem.IsLinux())
+        {
+            // "no-zygote": the zygote pre-fork optimization needs sandbox/namespace support that
+            // container-like environments lack; "single-process" and friends avoid the same class of crash.
+            extraArgs.Add(new("no-zygote", ""));
+            extraArgs.Add(new("disable-software-rasterizer", ""));
+            extraArgs.Add(new("single-process", ""));
+            extraArgs.Add(new("disable-dev-shm-usage", ""));
+        }
+
+        CefRuntimeLoader.Initialize(settings, extraArgs.ToArray());
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
