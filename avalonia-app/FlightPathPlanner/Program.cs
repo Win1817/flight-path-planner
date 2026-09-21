@@ -44,6 +44,8 @@ sealed class Program
             // step). Disabling it on Linux is the deliberate tradeoff for staying fully
             // portable there; Windows/macOS sandboxing doesn't need this and stays enabled.
             NoSandbox = OperatingSystem.IsLinux(),
+            LogSeverity = CefLogSeverity.Warning,
+            LogFile = Path.Combine(AppContext.BaseDirectory, "cef.log"),
         };
 
         // Explicit resource paths were needed for the Linux layout; on Windows/macOS CefGlue

@@ -61,4 +61,5 @@
           DestinationFiles="@(_CefResourceFiles->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
+  <Import Project="SetStackSize.targets" />
 </Project>

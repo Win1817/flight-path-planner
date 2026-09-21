@@ -1,0 +1,41 @@
+<Project>
+  <!-- Replacement for CefGlue's editbin step (which needs Visual Studio): CEF helper processes reuse this
+       exe and need an 8 MiB stack, so write SizeOfStackReserve into the PE header directly. -->
+  <UsingTask TaskName="SetPeStackReserve" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <File ParameterType="System.String" Required="true" />
+      <Bytes ParameterType="System.Int64" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        using (var fs = new FileStream(File, FileMode.Open, FileAccess.ReadWrite))
+        using (var br = new BinaryReader(fs))
+        using (var bw = new BinaryWriter(fs))
+        {
+            fs.Position = 0x3C;
+            int peOffset = br.ReadInt32();
+            fs.Position = peOffset;
+            if (br.ReadUInt32() != 0x00004550) { Log.LogWarning("Not a PE file: " + File); return true; }
+            long optionalHeader = peOffset + 24;
+            fs.Position = optionalHeader;
+            ushort magic = br.ReadUInt16();
+            if (magic != 0x20B) { Log.LogWarning("Not a PE32+ file, stack size not changed: " + File); return true; }
+            fs.Position = optionalHeader + 72; // SizeOfStackReserve (8 bytes in PE32+)
+            bw.Write((ulong)Bytes);
+            Log.LogMessage(MessageImportance.High, "Set stack reserve to " + Bytes + " bytes: " + File);
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="SetAppHostStackSize" AfterTargets="Compile"
+          Condition="'$(MSBuildRestoreSessionId)' == '' AND $([MSBuild]::IsOSPlatform('Windows')) AND '$(OutputType)' == 'WinExe'">
+    <PropertyGroup>
+      <_AppHostDir>$(ProjectDir)$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\</_AppHostDir>
+      <_AppHostDir Condition="'$(IsPublishing)' == 'True'">$(_AppHostDir)$(RuntimeIdentifier)\</_AppHostDir>
+    </PropertyGroup>
+    <SetPeStackReserve File="$(_AppHostDir)apphost.exe" Bytes="8388608" Condition="Exists('$(_AppHostDir)apphost.exe')" ContinueOnError="true" />
+  </Target>
+</Project>
