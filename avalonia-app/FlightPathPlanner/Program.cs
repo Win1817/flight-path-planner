@@ -13,18 +13,6 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // CEF helper processes (GPU/network/renderer) re-run this exe and crashed in libcef at startup with the
-        // default 1.5 MiB main-thread stack, so on Windows run everything on a thread with a large stack.
-        // (Not on macOS, where the UI must own the process's main thread.)
-        if (OperatingSystem.IsWindows())
-        {
-            var thread = new Thread(() => Run(args), 16 * 1024 * 1024);
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            thread.Join();
-            return;
-        }
-
         Run(args);
     }
 
@@ -35,7 +23,8 @@ sealed class Program
 
         try
         {
-            if (!MapDisabled) InitializeCef();
+            // Windows uses the system WebView2 for the map, so CEF (and its helper processes) is only started elsewhere.
+            if (!MapDisabled && !OperatingSystem.IsWindows()) InitializeCef();
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);

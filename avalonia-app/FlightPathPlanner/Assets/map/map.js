@@ -6,6 +6,16 @@
 //   window.csharpBridge.OnZoneClick(id, dataType)
 //   window.csharpBridge.OnZoneHover(idOrNull)
 
+// Talks to C#: WebView2 (Windows) posts messages; CEF (Linux/macOS) exposes window.csharpBridge.
+function bridgeCall(kind, id, dataType) {
+  if (window.chrome && window.chrome.webview) {
+    window.chrome.webview.postMessage(JSON.stringify({ kind: kind, id: id, dataType: dataType }));
+  } else if (window.csharpBridge) {
+    if (kind === 'click') window.csharpBridge.OnZoneClick(id, dataType);
+    else window.csharpBridge.OnZoneHover(id || '');
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -113,9 +123,9 @@ function ensureLayers() {
     if (e.features && e.features[0]) {
       const props = e.features[0].properties;
       if (props.opsId) {
-        window.csharpBridge.OnZoneClick(props.opsId, 'ops');
+        bridgeCall('click', props.opsId, 'ops');
       } else if (props.aorId) {
-        window.csharpBridge.OnZoneClick(props.aorId, 'aor');
+        bridgeCall('click', props.aorId, 'aor');
       }
     }
   });
@@ -126,7 +136,7 @@ function ensureLayers() {
       const props = e.features[0].properties;
       const id = props.opsId || props.aorId;
       if (id) {
-        window.csharpBridge.OnZoneHover(id);
+        bridgeCall('hover', id);
         const title = props.title || props.name || 'Untitled';
         const html = `
           <div class="space-y-1">
@@ -146,7 +156,7 @@ function ensureLayers() {
   map.on('mouseleave', 'zones-fill', () => {
     map.getCanvas().style.cursor = '';
     if (popup) popup.remove();
-    window.csharpBridge.OnZoneHover('');
+    bridgeCall('hover', '');
   });
 }
 
@@ -187,3 +197,12 @@ window.updateHighlights = function (idsJson) {
 };
 
 initMap();
+
+if (window.chrome && window.chrome.webview) {
+  window.chrome.webview.addEventListener('message', function (e) {
+    const message = JSON.parse(e.data);
+    if (message.kind === 'data') window.updateMapData(message.payload);
+    else if (message.kind === 'highlights') window.updateHighlights(message.payload);
+  });
+  window.chrome.webview.postMessage(JSON.stringify({ kind: 'ready' }));
+}
