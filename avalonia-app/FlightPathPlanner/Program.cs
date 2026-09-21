@@ -1,7 +1,9 @@
 ﻿using Avalonia;
 using System;
+#if USE_CEF
 using Xilium.CefGlue;
 using Xilium.CefGlue.Common;
+#endif
 
 namespace FlightPathPlanner;
 
@@ -24,7 +26,9 @@ sealed class Program
         try
         {
             // Windows uses the system WebView2 for the map, so CEF (and its helper processes) is only started elsewhere.
-            if (!MapDisabled && !OperatingSystem.IsWindows()) InitializeCef();
+#if USE_CEF
+            if (!MapDisabled) InitializeCef();
+#endif
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
@@ -42,6 +46,7 @@ sealed class Program
     private static void LogCrash(string text) =>
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), $"[{DateTime.Now:O}] {text}{Environment.NewLine}{Environment.NewLine}");
 
+#if USE_CEF
     private static void InitializeCef()
     {
         var resourcesDir = Path.Combine(AppContext.BaseDirectory, "Resources");
@@ -87,6 +92,7 @@ sealed class Program
 
         CefRuntimeLoader.Initialize(settings, extraArgs.ToArray());
     }
+#endif
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()

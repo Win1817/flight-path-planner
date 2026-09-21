@@ -3,7 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+#if USE_CEF
 using Xilium.CefGlue.Avalonia;
+#endif
 
 namespace FlightPathPlanner.Views;
 
@@ -11,7 +13,9 @@ namespace FlightPathPlanner.Views;
 /// Linux/macOS use embedded Chromium (CefGlue). Both drive the same Assets/map page.</summary>
 public partial class MapView : UserControl
 {
+#if USE_CEF
     private readonly AvaloniaCefBrowser? _cef;
+#endif
     private readonly WebView2Host? _web;
     private bool _pageReady;
     private string? _lastData;
@@ -40,6 +44,7 @@ public partial class MapView : UserControl
             };
             RootGrid.Children.Add(_web);
         }
+#if USE_CEF
         else
         {
             _cef = new AvaloniaCefBrowser();
@@ -52,6 +57,7 @@ public partial class MapView : UserControl
             _cef.Address = new Uri(mapHtmlPath).AbsoluteUri;
             RootGrid.Children.Add(_cef);
         }
+#endif
     }
 
     private void ShowMessage(string text)
@@ -113,7 +119,9 @@ public partial class MapView : UserControl
         _lastData = viewerGeoJson;
         if (!_pageReady) return;
         if (_web != null) _web.Post("data", viewerGeoJson);
+#if USE_CEF
         else _cef?.ExecuteJavaScript($"window.updateMapData({JsonSerializer.Serialize(viewerGeoJson)});", null, 0);
+#endif
     }
 
     public void UpdateHighlights(IReadOnlyCollection<string> ids)
@@ -122,9 +130,12 @@ public partial class MapView : UserControl
         if (!_pageReady) return;
         var idsJson = JsonSerializer.Serialize(ids);
         if (_web != null) _web.Post("highlights", idsJson);
+#if USE_CEF
         else _cef?.ExecuteJavaScript($"window.updateHighlights({JsonSerializer.Serialize(idsJson)});", null, 0);
+#endif
     }
 
+#if USE_CEF
     /// <summary>Object exposed to JS as window.csharpBridge (CEF only) — its public methods are callable from map.js.</summary>
     private sealed class JsBridge(MapView owner)
     {
@@ -138,4 +149,5 @@ public partial class MapView : UserControl
             Dispatcher.UIThread.Post(() => owner.ZoneHovered?.Invoke(string.IsNullOrEmpty(id) ? null : id));
         }
     }
+#endif
 }

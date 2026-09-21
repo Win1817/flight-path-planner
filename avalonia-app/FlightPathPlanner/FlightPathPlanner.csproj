@@ -10,6 +10,23 @@
     <IsEditbinEnabled>false</IsEditbinEnabled>
     <!-- WebView2 ships an unused WPF assembly that triggers a harmless WindowsBase version-conflict warning. -->
     <NoWarn>$(NoWarn);MSB3277</NoWarn>
+
+    <!-- The map runs in the system's Edge WebView2 on Windows, so the ~150 MB embedded Chromium (CEF) is only
+         needed for Linux/macOS targets. With no explicit RuntimeIdentifier the build host decides. -->
+    <_TargetsWindows Condition="'$(RuntimeIdentifier)' != '' AND $(RuntimeIdentifier.StartsWith('win'))">true</_TargetsWindows>
+    <_TargetsWindows Condition="'$(RuntimeIdentifier)' == '' AND $([MSBuild]::IsOSPlatform('Windows'))">true</_TargetsWindows>
+    <UseCef Condition="'$(_TargetsWindows)' != 'true'">true</UseCef>
+    <UseCef Condition="'$(UseCef)' == ''">false</UseCef>
+    <DefineConstants Condition="'$(UseCef)' == 'true'">$(DefineConstants);USE_CEF</DefineConstants>
+    <!-- CEF's native files are selected per runtime identifier, so default to the build host's RID when CEF is used
+         (Linux/macOS) — otherwise a plain "dotnet run" would launch without libcef. -->
+    <RuntimeIdentifier Condition="'$(UseCef)' == 'true' AND '$(RuntimeIdentifier)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</RuntimeIdentifier>
+    <!-- Single-file publishes compress the managed assemblies; native libraries are extracted on first run. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Keep publish folders free of debug symbols and third-party XML doc files. -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,7 +44,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
-    <PackageReference Include="CefGlue.Next.Avalonia" Version="152.7977.83" />
+    <PackageReference Include="CefGlue.Next.Avalonia" Version="152.7977.83" Condition="'$(UseCef)' == 'true'" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -52,7 +69,7 @@
     <_CefVersionDir Condition="'$(_CefPackageFolder)' != '' AND Exists('$(NuGetPackageRoot)$(_CefPackageFolder)')">$([System.IO.Directory]::GetDirectories('$(NuGetPackageRoot)$(_CefPackageFolder)')[0])</_CefVersionDir>
   </PropertyGroup>
 
-  <Target Name="CopyCefRuntimeFiles" AfterTargets="Build;Publish" Condition="'$(_CefVersionDir)' != ''">
+  <Target Name="CopyCefRuntimeFiles" AfterTargets="Build" Condition="'$(UseCef)' == 'true' AND '$(_CefVersionDir)' != ''">
     <ItemGroup>
       <_CefNativeFiles Include="$(_CefVersionDir)\runtimes\$(RuntimeIdentifier)\native\*.*" />
       <_CefResourceFiles Include="$(_CefVersionDir)\CEF\$(RuntimeIdentifier)\**\*.*" />
@@ -62,6 +79,20 @@
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(_CefResourceFiles)"
           DestinationFiles="@(_CefResourceFiles->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Same files into the publish folder: CEF's native binaries can't be bundled into a single-file exe. -->
+  <Target Name="CopyCefRuntimeFilesToPublish" AfterTargets="Publish" Condition="'$(UseCef)' == 'true' AND '$(_CefVersionDir)' != ''">
+    <ItemGroup>
+      <_CefPublishNativeFiles Include="$(_CefVersionDir)\runtimes\$(RuntimeIdentifier)\native\*.*" />
+      <_CefPublishResourceFiles Include="$(_CefVersionDir)\CEF\$(RuntimeIdentifier)\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CefPublishNativeFiles)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_CefPublishResourceFiles)"
+          DestinationFiles="@(_CefPublishResourceFiles->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
   <Import Project="SetStackSize.targets" />
