@@ -141,10 +141,10 @@
                 <Grid ColumnDefinitions="Auto,*,Auto">
                   <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" Margin="0,0,4,0" />
                   <StackPanel Grid.Column="1" Spacing="2" Cursor="Hand" Tag="{Binding}" Tapped="AorRow_Tapped">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Ellipse Width="10" Height="10" Fill="{Binding Color}" VerticalAlignment="Center" />
-                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                      <Ellipse Grid.Column="0" Width="10" Height="10" Fill="{Binding Color}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    </Grid>
                     <TextBlock Text="{Binding Designator}" FontSize="11" Foreground="#6b7488" TextTrimming="CharacterEllipsis" />
                   </StackPanel>
                   <Button Grid.Column="2" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"

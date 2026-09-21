@@ -52,6 +52,12 @@ function getBoundsFromGeoJSON(geojson) {
   return [[minX, minY], [maxX, maxY]];
 }
 
+// Dark basemap (Esri World Dark Gray, free with attribution). CARTO's dark tiles now require an API key;
+// swap these constants to change the basemap.
+const BASEMAP_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+const BASEMAP_LABEL_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
+const BASEMAP_ATTRIBUTION = 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors';
+
 let map = null;
 let popup = null;
 let mapLoaded = false;
@@ -64,20 +70,24 @@ function initMap() {
     style: {
       version: 8,
       sources: {
-        'carto-dark': {
+        'basemap': {
           type: 'raster',
-          tiles: [
-            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-          ],
+          tiles: [BASEMAP_TILES],
           tileSize: 256,
-          attribution: '© CARTO © OpenStreetMap contributors',
+          maxzoom: 16,
+          attribution: BASEMAP_ATTRIBUTION,
+        },
+        'basemap-labels': {
+          type: 'raster',
+          tiles: [BASEMAP_LABEL_TILES],
+          tileSize: 256,
+          maxzoom: 16,
         },
       },
       layers: [
         { id: 'bg', type: 'background', paint: { 'background-color': '#0b0f19' } },
-        { id: 'carto-dark-layer', type: 'raster', source: 'carto-dark', minzoom: 0, maxzoom: 20 },
+        { id: 'basemap-layer', type: 'raster', source: 'basemap', minzoom: 0, maxzoom: 20 },
+        { id: 'basemap-labels-layer', type: 'raster', source: 'basemap-labels', minzoom: 0, maxzoom: 20 },
       ],
     },
     center: [0, 20],

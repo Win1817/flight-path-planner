@@ -8,6 +8,8 @@
     <!-- CefGlue's optional post-build stack-size bump needs Visual Studio's editbin.exe; skip it so the
          project builds on Windows machines without VS installed. -->
     <IsEditbinEnabled>false</IsEditbinEnabled>
+    <!-- WebView2 ships an unused WPF assembly that triggers a harmless WindowsBase version-conflict warning. -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
