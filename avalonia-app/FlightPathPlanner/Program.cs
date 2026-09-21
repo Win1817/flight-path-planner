@@ -13,12 +13,29 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // CEF helper processes (GPU/network/renderer) re-run this exe and crashed in libcef at startup with the
+        // default 1.5 MiB main-thread stack, so on Windows run everything on a thread with a large stack.
+        // (Not on macOS, where the UI must own the process's main thread.)
+        if (OperatingSystem.IsWindows())
+        {
+            var thread = new Thread(() => Run(args), 16 * 1024 * 1024);
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+            return;
+        }
+
+        Run(args);
+    }
+
+    private static void Run(string[] args)
+    {
         AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash(e.ExceptionObject?.ToString() ?? "unknown");
         TaskScheduler.UnobservedTaskException += (_, e) => LogCrash("UnobservedTask: " + e.Exception);
 
         try
         {
-            InitializeCef();
+            if (!MapDisabled) InitializeCef();
 
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
@@ -30,6 +47,8 @@ sealed class Program
             throw;
         }
     }
+
+    public static bool MapDisabled => Environment.GetEnvironmentVariable("FPP_NO_MAP") == "1";
 
     private static void LogCrash(string text) =>
         File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), $"[{DateTime.Now:O}] {text}{Environment.NewLine}{Environment.NewLine}");
@@ -62,6 +81,9 @@ sealed class Program
             new("disable-gpu", ""),
             new("disable-gpu-compositing", ""),
             new("enable-unsafe-swiftshader", ""),
+            // Keep GPU/network work inside the browser process: their separate helper processes kept crashing.
+            new("in-process-gpu", ""),
+            new("enable-features", "NetworkServiceInProcess2"),
         };
 
         if (OperatingSystem.IsLinux())

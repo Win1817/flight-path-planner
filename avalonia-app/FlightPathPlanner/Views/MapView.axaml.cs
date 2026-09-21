@@ -8,7 +8,7 @@ namespace FlightPathPlanner.Views;
 
 public partial class MapView : UserControl
 {
-    private readonly AvaloniaCefBrowser _browser;
+    private readonly AvaloniaCefBrowser? _browser;
 
     public event Action<string, string>? ZoneClicked; // (id, dataType: "ops" | "aor")
     public event Action<string?>? ZoneHovered;         // id, or null when hover ends
@@ -16,6 +16,18 @@ public partial class MapView : UserControl
     public MapView()
     {
         InitializeComponent();
+
+        if (Program.MapDisabled)
+        {
+            RootGrid.Children.Add(new TextBlock
+            {
+                Text = "Map disabled (FPP_NO_MAP=1)",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Foreground = Avalonia.Media.Brushes.Gray,
+            });
+            return;
+        }
 
         _browser = new AvaloniaCefBrowser();
         _browser.RegisterJavascriptObject(new JsBridge(this), "csharpBridge");
@@ -35,14 +47,14 @@ public partial class MapView : UserControl
     public void UpdateData(string viewerGeoJson)
     {
         var script = $"window.updateMapData({JsonSerializer.Serialize(viewerGeoJson)});";
-        _browser.ExecuteJavaScript(script, null, 0);
+        _browser?.ExecuteJavaScript(script, null, 0);
     }
 
     public void UpdateHighlights(IReadOnlyCollection<string> ids)
     {
         var idsJson = JsonSerializer.Serialize(ids);
         var script = $"window.updateHighlights({JsonSerializer.Serialize(idsJson)});";
-        _browser.ExecuteJavaScript(script, null, 0);
+        _browser?.ExecuteJavaScript(script, null, 0);
     }
 
     /// <summary>Object exposed to JS as window.csharpBridge — its public methods are callable from map.js.</summary>
