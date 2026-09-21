@@ -47,6 +47,10 @@ public partial class ReportTabViewModel : ViewModelBase
 
     public bool HasOpsAndAors => _opsTab.HasOps && _aorTab.HasAors;
     public int AorCount => _aorTab.TotalCount;
+    public string MissingDataText =>
+        !_opsTab.HasOps && !_aorTab.HasAors ? "Upload both OPS and AoR data to generate a report."
+        : !_opsTab.HasOps ? "Upload OPS data to generate a report."
+        : "Upload AoR data to generate a report.";
     public int MatchCount => MatchingOps.Count;
     public bool HasSelectedAor => SelectedAor != null;
     public bool HasNoMatches => HasSelectedAor && MatchCount == 0;
@@ -56,6 +60,7 @@ public partial class ReportTabViewModel : ViewModelBase
         if (e.PropertyName is nameof(OpsTabViewModel.FilteredOps) or nameof(OpsTabViewModel.HasOps))
         {
             OnPropertyChanged(nameof(HasOpsAndAors));
+            OnPropertyChanged(nameof(MissingDataText));
             RefreshMatches();
         }
     }
@@ -65,6 +70,7 @@ public partial class ReportTabViewModel : ViewModelBase
         if (e.PropertyName == nameof(AorTabViewModel.AllAors))
         {
             OnPropertyChanged(nameof(HasOpsAndAors));
+            OnPropertyChanged(nameof(MissingDataText));
             OnPropertyChanged(nameof(AorCount));
             RefreshAorOptions();
         }

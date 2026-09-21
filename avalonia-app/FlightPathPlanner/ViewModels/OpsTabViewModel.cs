@@ -24,6 +24,13 @@ public partial class OpsTabViewModel : ViewModelBase
     /// <summary>Uploads are kept in the local data folder; this panel reloads/archives/deletes them.</summary>
     public SavedFilesViewModel SavedFiles { get; }
 
+    /// <summary>True while a file is being parsed, so the view can show a loading state.</summary>
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
+    [ObservableProperty]
+    public partial string? BusyText { get; set; }
+
     [ObservableProperty]
     public partial ObservableCollection<OpsRowViewModel> FilteredOps { get; set; } = new();
 
@@ -85,11 +92,13 @@ public partial class OpsTabViewModel : ViewModelBase
             RefreshFilteredOps();
 
             if (persist) SavedFiles.SaveNew(fileName, json);
+            Notifier.Success($"Loaded {_allOps.Count:N0} operation{(_allOps.Count == 1 ? "" : "s")} from {fileName}");
             return true;
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+            Notifier.Error($"Couldn't load {fileName}: {ex.Message}");
             _allOps = new List<ParsedOps>();
             RebuildClosureReasonChips();
             RefreshFilteredOps();
@@ -209,6 +218,7 @@ public partial class OpsTabViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteOp(OpsRowViewModel row)
     {
+        Notifier.Info("Removed 1 operation from the current session");
         _allOps.RemoveAll(o => o.OperationPlanId == row.OperationPlanId);
         RebuildClosureReasonChips();
         RefreshFilteredOps();
@@ -219,6 +229,7 @@ public partial class OpsTabViewModel : ViewModelBase
     {
         var selectedIds = FilteredOps.Where(r => r.IsSelected).Select(r => r.OperationPlanId).ToHashSet();
         if (selectedIds.Count == 0) return;
+        Notifier.Info($"Removed {selectedIds.Count:N0} operation{(selectedIds.Count == 1 ? "" : "s")} from the current session");
         _allOps.RemoveAll(o => selectedIds.Contains(o.OperationPlanId));
         RebuildClosureReasonChips();
         RefreshFilteredOps();

@@ -28,7 +28,8 @@ The code in this repository is a native port of an earlier React/Vite web applic
 | **Report tab** | Searchable AoR picker; live count and list of OPS intersecting the chosen AoR (against the OPS tab's *current* filters); export a per-AoR match-count table to JSON or XLSX. |
 | **Lookup tab** | Resolve a `lat, lon` / `lat:lon` / `lat lon` string or an address (Nominatim); radius from a text box or presets (0.5, 1, 2, 5, 10 km); list and export OPS within the radius. |
 | **Map** | Shows the active tab's shapes (OPS, AoRs, report result, or lookup radius plus matches); highlights selected, active and hovered items; hover popup; clicking a shape activates it in the sidebar. |
-| **Saved locally** | Every OPS/AoR upload and every report export is written under a `data` folder; per-tab panel to reload (OPS/AoR), archive, restore and delete, singly or in bulk; deletes need a second confirmation click. |
+| **Saved Locally** | Every OPS/AoR upload and every report export is written under a `data` folder. A dedicated "Saved Locally" page lists them by category to reload (OPS/AoR, which switches to that tab), archive, restore and delete, singly or in bulk; deletes need a second confirmation click that states the consequence. |
+| **Interface ("Luna" theme)** | Dark theme with a purple accent: header showing the current section and real data counts, navigation rail with count badges, glass panels, cards with status pills, inspector-style detail panels, empty and loading states, compact self-dismissing notifications for uploads, exports, warnings, errors and file actions. All colours, radii, spacing, icons and control styles are centralised in `Styles/`. |
 | **Input formats** | OPS: a single plan object, an array, or an object with a `plans`, `operations` or `flight_plans` array; both camelCase and snake_case field names. AoR: two schemas (a "responsibility area" schema and an airspace-zone schema with Circle/Polygon/MultiPolygon projections); entries that cannot be parsed are skipped and counted in a warning. |
 
 ### Partially implemented
@@ -45,8 +46,8 @@ MVVM application. Each tab has a view model; `MainViewModel` coordinates them an
 
 ```mermaid
 flowchart LR
-    User --> UI["Avalonia UI<br/>MainWindow + 4 tab views"]
-    UI --> VM["View models<br/>Ops / Aor / Report / Lookup / SavedFiles"]
+    User --> UI["Avalonia UI (Luna theme)<br/>MainWindow + 5 pages"]
+    UI --> VM["View models<br/>Ops / Aor / Report / Lookup / Saved / Toasts"]
     VM --> Parsers["OpsParser / AorParser<br/>GeometryParser"]
     VM --> Report["ReportService<br/>(NetTopologySuite)"]
     VM --> Geo["GeoMath"]
@@ -90,7 +91,12 @@ Versions are taken from `avalonia-app/FlightPathPlanner/FlightPathPlanner.csproj
     ├── FlightPathPlanner.slnx              # Solution (app + tests)
     ├── FlightPathPlanner/                  # The application
     │   ├── Program.cs                      # Entry point, crash logging, CEF start-up (non-Windows)
-    │   ├── App.axaml(.cs)                  # Application, dark theme and control styles
+    │   ├── App.axaml(.cs)                  # Application; Fluent dark theme recoloured to the Luna accent
+    │   ├── Styles/                         # Luna design system
+    │   │   ├── LunaTokens.axaml            # Colours, gradients, shadows, spacing, radii, control heights, opacity, type scale
+    │   │   ├── LunaIcons.axaml             # One family of 24x24 line icons
+    │   │   └── LunaStyles.axaml            # Buttons, inputs, chips, cards, glass panels, pills, toasts, text styles
+    │   ├── Controls/LunaIcon.cs            # Monochrome line-icon control
     │   ├── Models/                         # OPS, AoR and geometry models
     │   ├── Services/
     │   │   ├── OpsParser.cs, AorParser.cs, GeometryParser.cs, JsonHelpers.cs   # Tolerant JSON parsing
@@ -98,9 +104,10 @@ Versions are taken from `avalonia-app/FlightPathPlanner/FlightPathPlanner.csproj
     │   │   ├── ReportService.cs            # Intersection queries (AoR match, radius match)
     │   │   ├── MapGeoJson.cs               # Builds the FeatureCollection the map page consumes
     │   │   ├── GeocodeService.cs           # Coordinate parsing + Nominatim lookup
-    │   │   └── LocalStorageService.cs      # data/ folder, archive, restore, delete
+    │   │   ├── LocalStorageService.cs      # data/ folder, archive, restore, delete
+    │   │   └── Notifier.cs                 # User-feedback events (success/info/warning/error)
     │   ├── ViewModels/                     # MainViewModel and per-tab view models
-    │   ├── Views/                          # Window, tab views, SavedFilesPanel, MapView, WebView2Host
+    │   ├── Views/                          # Window shell, tab views, SavedTabView/SavedFilesPanel, MapView, WebView2Host, FileDialogs
     │   ├── Assets/map/                     # index.html, map.js, bundled MapLibre GL JS/CSS
     │   ├── SetStackSize.targets            # Windows build step (see Known Limitations)
     │   └── FlightPathPlanner.csproj
@@ -191,7 +198,8 @@ Not present in this repository.
 4. Open **AoRs** and upload an AoR JSON file. Select, inspect and export AoRs the same way.
 5. With both files loaded, open **Report**, pick an AoR, and see which OPS (within the OPS tab's current filters) intersect it. **Export** writes a match count for every AoR.
 6. Open **Lookup**, enter a coordinate or address, choose a radius, and review/export the OPS inside the circle. If an address returns several candidates, pick one.
-7. Use **Saved locally** (top of the OPS, AoRs and Report tabs) to reload an earlier upload, archive or restore files, or delete them.
+7. Open **Saved Locally** (bottom of the navigation rail) to reload an earlier upload (this jumps to the OPS or AoRs tab), archive or restore files, or delete them.
+8. Uploads, exports, warnings, errors and file actions are confirmed by short notifications at the top of the sidebar panel.
 
 ## Local Data
 
@@ -226,7 +234,7 @@ Not applicable: the application exposes no API, has no login or roles, and uses 
 
 ## Testing
 
-xUnit tests live in `avalonia-app/FlightPathPlanner.Tests` (70 tests at the time of writing) and cover geodesic math, OPS/AoR parsing, coordinate parsing, intersection queries, map GeoJSON output and map coordination, local storage, and the tab/saved-files view models. There are no integration or end-to-end UI tests.
+xUnit tests live in `avalonia-app/FlightPathPlanner.Tests` (79 tests at the time of writing) and cover geodesic math, OPS/AoR parsing, coordinate parsing, intersection queries, map GeoJSON output and map coordination, local storage, the tab/saved-files view models, and the shell state (header text, navigation badges, notifications, toast queue). There are no integration or end-to-end UI tests; the visual design was checked by screenshots only.
 
 ```bash
 cd avalonia-app
@@ -304,11 +312,15 @@ Technical
 - Windows builds run `SetStackSize.targets`, which sets an 8 MiB stack reserve in the app host. It was added for CEF's helper processes; whether the Windows WebView2 path still needs it is **Not confirmed**.
 
 Incomplete features
+- The map page's Luna styling (glass zoom controls, popups, lavender selection outline) could not be viewed in this project's development environment; only the desktop shell was verified visually. **Not confirmed** on a real display.
+- No custom modal dialogs exist: destructive actions use an inline second-click confirmation, and file pickers are the operating system's.
+- The window keeps the operating system's title bar; reduced-motion preferences are not read.
 - The OPS date filter uses two date pickers, not a range calendar.
 - AoRs have no date or closure-reason filter.
 - Lookup results are not saved locally; only OPS/AoR uploads and report exports are.
 
 Deployment
+- Notifications appear over the sidebar only: the map is a native web view and cannot be drawn over.
 - Linux and macOS packages are roughly 370–400 MB because they bundle Chromium.
 - The `Assets/` folder cannot currently be embedded in the single-file executable.
 

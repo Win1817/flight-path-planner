@@ -16,6 +16,10 @@ public partial class OpsRowViewModel(ParsedOps op) : ViewModelBase
     public string? Description => Op.Description;
     public bool HasDescription => !string.IsNullOrEmpty(Op.Description);
     public string Status => OpsParser.GetOperationStatus(Op.StartTime, Op.EndTime);
+    public bool IsActiveStatus => Status == "active";
+    public bool IsPendingStatus => Status == "pending";
+    public bool IsExpiredStatus => Status == "expired";
+    public string StatusLabel => string.IsNullOrEmpty(Status) ? "" : char.ToUpperInvariant(Status[0]) + Status[1..];
     public string StartTimeDisplay => OpsParser.FormatDateTimeShort(Op.StartTime);
     public string AreaDisplay => OpsParser.FormatArea(Op.ComputedArea);
     public int ZoneCount => Op.ZoneCount;
@@ -26,6 +30,9 @@ public partial class OpsRowViewModel(ParsedOps op) : ViewModelBase
     public bool HasOperator => !string.IsNullOrEmpty(Op.Operator);
     public string? State => Op.State;
     public string? ClosureReason => Op.ClosureReason;
+    public bool HasState => !string.IsNullOrEmpty(Op.State);
+    public bool HasClosureReason => !string.IsNullOrEmpty(Op.ClosureReason);
+    public string ZonesDisplay => Op.ZoneCount == 1 ? "1 zone" : $"{Op.ZoneCount} zones";
     public bool HasStatusInfo => !string.IsNullOrEmpty(Op.State) || !string.IsNullOrEmpty(Op.ClosureReason);
     public string StateAndClosureReasonDisplay => string.Join(" / ", new[] { Op.State, Op.ClosureReason }.Where(s => !string.IsNullOrEmpty(s)));
     public string StartTimeFullDisplay => OpsParser.FormatDateTime(Op.StartTime);

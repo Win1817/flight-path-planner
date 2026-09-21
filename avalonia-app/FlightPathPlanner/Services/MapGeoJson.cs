@@ -30,7 +30,7 @@ public static class MapGeoJson
                 w.WriteString("name", "Search Radius");
                 w.WriteString("designator", $"{r.radiusKm:0.##} km");
                 w.WriteNumber("area", circle.ComputeArea());
-                w.WriteString("color", "#F43F5E");
+                w.WriteString("color", "#FB7185"); // Luna danger: the lookup radius must not resemble any OPS/AoR colour
                 w.WriteEndObject();
                 WriteGeometry(w, circle);
                 w.WriteEndObject();

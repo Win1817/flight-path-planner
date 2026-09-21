@@ -7,6 +7,7 @@ namespace FlightPathPlanner.ViewModels;
 public partial class SavedFileRowViewModel(SavedFile file, bool canLoad) : ViewModelBase
 {
     public SavedFile File { get; } = file;
+    public bool IsArchived => File.IsArchived;
     public bool CanLoad { get; } = canLoad && !file.IsArchived;
     public string ArchiveButtonText => File.IsArchived ? "Restore" : "Archive";
     public string DeleteButtonText => ConfirmingDelete ? "Confirm delete" : "Delete";

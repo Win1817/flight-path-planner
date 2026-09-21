@@ -1,74 +1,104 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:controls="using:FlightPathPlanner.Controls"
              x:Class="FlightPathPlanner.Views.SavedFilesPanel"
              x:DataType="vm:SavedFilesViewModel">
 
-  <Border Background="#121726" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8" Padding="8"
-          IsVisible="{Binding IsAvailable}">
-    <StackPanel Spacing="8">
+  <Border Classes="card" Padding="12" IsVisible="{Binding IsAvailable}">
+    <StackPanel Spacing="10">
 
-      <Button Command="{Binding ToggleExpandedCommand}" Background="Transparent" BorderThickness="0"
-              HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="4,2">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="{Binding ExpandGlyph}" Foreground="#9aa4b8" />
-          <TextBlock Text="{Binding HeaderText}" FontWeight="SemiBold" FontSize="12" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <Button Classes="ghost" Command="{Binding ToggleExpandedCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                Padding="6,0" AutomationProperties.Name="Show or hide this list">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <controls:LunaIcon Classes="small" Data="{StaticResource IconChevronDown}" IsVisible="{Binding IsExpanded}" />
+            <controls:LunaIcon Classes="small" Data="{StaticResource IconChevronRight}" IsVisible="{Binding !IsExpanded}" />
+            <TextBlock Text="{Binding HeaderText}" Classes="cardtitle" Foreground="{DynamicResource LunaTextBrush}" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="1" Classes="small" Command="{Binding ToggleArchiveViewCommand}" IsVisible="{Binding IsExpanded}">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <controls:LunaIcon Classes="small" Data="{StaticResource IconArchive}" />
+            <TextBlock Text="{Binding ArchiveToggleText}" />
+          </StackPanel>
+        </Button>
+      </Grid>
+
+      <StackPanel Spacing="10" IsVisible="{Binding IsExpanded}">
+
+        <Border Classes="pill danger" HorizontalAlignment="Left" IsVisible="{Binding HasStatus}">
+          <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Bulk actions -->
+        <Border Classes="card quiet" IsVisible="{Binding HasSelection}">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="secondary" VerticalAlignment="Center">
+              <Run Text="{Binding SelectedCount}" /><Run Text=" selected" />
+            </TextBlock>
+            <TextBlock Text="{Binding ConfirmBulkDeleteText}" Classes="error" IsVisible="{Binding ConfirmingBulkDelete}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <Button Content="{Binding ArchiveSelectedText}" Command="{Binding ArchiveSelectedCommand}" HorizontalAlignment="Stretch" />
+              <Button Grid.Column="1" Classes="danger" Content="{Binding DeleteSelectedText}" Command="{Binding DeleteSelectedCommand}"
+                      HorizontalAlignment="Stretch" />
+            </Grid>
+            <Button Content="Cancel" Classes="ghost" Command="{Binding CancelBulkDeleteCommand}" IsVisible="{Binding ConfirmingBulkDelete}"
+                    HorizontalAlignment="Stretch" />
+          </StackPanel>
+        </Border>
+
+        <Button Content="Select all" Classes="ghost small" Command="{Binding SelectAllCommand}" HorizontalAlignment="Left"
+                IsVisible="{Binding HasRows}" />
+
+        <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,8" IsVisible="{Binding HasNoRows}">
+          <controls:LunaIcon Classes="large" Data="{StaticResource IconFolder}" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding EmptyText}" Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="240" />
         </StackPanel>
-      </Button>
 
-      <StackPanel Spacing="8" IsVisible="{Binding IsExpanded}">
-
-        <TextBlock Text="{Binding StatusMessage}" Foreground="#f87171" FontSize="11" TextWrapping="Wrap"
-                   IsVisible="{Binding HasStatus}" />
-
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-          <Button Grid.Column="0" Content="{Binding ArchiveToggleText}" Command="{Binding ToggleArchiveViewCommand}"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,4" />
-          <Button Grid.Column="1" Content="Select all" Command="{Binding SelectAllCommand}"
-                  IsVisible="{Binding HasRows}" Padding="8,4" />
-        </Grid>
-
-        <StackPanel Spacing="6" IsVisible="{Binding HasSelection}">
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-            <Button Grid.Column="0" Content="{Binding ArchiveSelectedText}" Command="{Binding ArchiveSelectedCommand}"
-                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,4" />
-            <Button Grid.Column="1" Content="{Binding DeleteSelectedText}" Command="{Binding DeleteSelectedCommand}"
-                    Background="#7f1d1d" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,4" />
-          </Grid>
-          <Button Content="Cancel" Command="{Binding CancelBulkDeleteCommand}" IsVisible="{Binding ConfirmingBulkDelete}"
-                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="8,4" />
-        </StackPanel>
-
-        <TextBlock Text="{Binding EmptyText}" Foreground="#6b7488" FontSize="11" TextWrapping="Wrap"
-                   HorizontalAlignment="Center" IsVisible="{Binding HasNoRows}" />
-
-        <ScrollViewer MaxHeight="230" IsVisible="{Binding HasRows}" Padding="0,0,10,0">
-          <ItemsControl ItemsSource="{Binding Rows}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:SavedFileRowViewModel">
-                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="6"
-                        Padding="8" Margin="0,0,0,6">
-                  <StackPanel Spacing="4">
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
-                      <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" />
-                      <StackPanel Grid.Column="1" Spacing="1">
-                        <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding MetaDisplay}" FontSize="10" Foreground="#6b7488" />
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SavedFileRowViewModel">
+              <Border Classes="card quiet" Classes.selected="{Binding IsSelected}" Margin="0,0,0,8">
+                <StackPanel Spacing="8">
+                  <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" MinWidth="0" AutomationProperties.Name="Select file" />
+                    <Border Grid.Column="1" Width="34" Height="34" CornerRadius="10" Background="{DynamicResource LunaAccentTintBrush}">
+                      <controls:LunaIcon Classes="accent" Data="{StaticResource IconFile}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="1">
+                      <TextBlock Text="{Binding DisplayName}" Classes="cardtitle" ToolTip.Tip="{Binding DisplayName}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding MetaDisplay}" Classes="meta" />
+                        <Border Classes="pill" Padding="6,0" IsVisible="{Binding IsArchived}"><TextBlock Text="Archived" /></Border>
                       </StackPanel>
-                    </Grid>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <Button Content="Load" Tag="{Binding}" Click="Load_Click" IsVisible="{Binding CanLoad}" Padding="8,3" />
-                      <Button Content="{Binding ArchiveButtonText}" Tag="{Binding}" Click="ToggleArchive_Click" Padding="8,3" />
-                      <Button Content="{Binding DeleteButtonText}" Tag="{Binding}" Click="Delete_Click" Padding="8,3" Background="#3a1a1a" />
-                      <Button Content="Cancel" Tag="{Binding}" Click="CancelDelete_Click" Padding="8,3"
-                              IsVisible="{Binding ConfirmingDelete}" />
                     </StackPanel>
+                  </Grid>
+                  <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                    <Button Classes="icon compact" Tag="{Binding}" Click="Load_Click" IsVisible="{Binding CanLoad}"
+                            AutomationProperties.Name="Reload this file" ToolTip.Tip="Reload into its tab">
+                      <controls:LunaIcon Data="{StaticResource IconOpen}" />
+                    </Button>
+                    <Button Classes="icon compact" Tag="{Binding}" Click="ToggleArchive_Click" IsVisible="{Binding !IsArchived}"
+                            AutomationProperties.Name="Archive this file" ToolTip.Tip="Archive">
+                      <controls:LunaIcon Data="{StaticResource IconArchive}" />
+                    </Button>
+                    <Button Classes="icon compact" Tag="{Binding}" Click="ToggleArchive_Click" IsVisible="{Binding IsArchived}"
+                            AutomationProperties.Name="Restore this file" ToolTip.Tip="Restore">
+                      <controls:LunaIcon Data="{StaticResource IconRestore}" />
+                    </Button>
+                    <Button Classes="icon compact danger" Tag="{Binding}" Click="Delete_Click" IsVisible="{Binding !ConfirmingDelete}"
+                            AutomationProperties.Name="Delete this file" ToolTip.Tip="Delete permanently">
+                      <controls:LunaIcon Data="{StaticResource IconTrash}" />
+                    </Button>
+                    <Button Classes="danger small" Content="Delete permanently" Tag="{Binding}" Click="Delete_Click" IsVisible="{Binding ConfirmingDelete}" />
+                    <Button Classes="small" Content="Cancel" Tag="{Binding}" Click="CancelDelete_Click" IsVisible="{Binding ConfirmingDelete}" />
                   </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
       </StackPanel>
     </StackPanel>

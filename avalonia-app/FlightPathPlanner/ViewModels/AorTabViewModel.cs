@@ -23,6 +23,12 @@ public partial class AorTabViewModel : ViewModelBase
     public SavedFilesViewModel SavedFiles { get; }
 
     [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
+    [ObservableProperty]
+    public partial string? BusyText { get; set; }
+
+    [ObservableProperty]
     public partial ObservableCollection<AorRowViewModel> FilteredAors { get; set; } = new();
 
     [ObservableProperty]
@@ -71,11 +77,16 @@ public partial class AorTabViewModel : ViewModelBase
             RefreshFilteredAors();
 
             if (persist) SavedFiles.SaveNew(fileName, json);
+            if (rawAors.Skipped > 0)
+                Notifier.Warning($"Loaded {_allAors.Count:N0} areas from {fileName}; {rawAors.Skipped} entr{(rawAors.Skipped == 1 ? "y was" : "ies were")} skipped");
+            else
+                Notifier.Success($"Loaded {_allAors.Count:N0} area{(_allAors.Count == 1 ? "" : "s")} from {fileName}");
             return true;
         }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+            Notifier.Error($"Couldn't load {fileName}: {ex.Message}");
             _allAors = new List<ParsedAor>();
             RefreshFilteredAors();
             return false;
@@ -154,6 +165,7 @@ public partial class AorTabViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteAor(AorRowViewModel row)
     {
+        Notifier.Info("Removed 1 area from the current session");
         _allAors.RemoveAll(a => a.Id == row.Id);
         RefreshFilteredAors();
     }
@@ -163,6 +175,7 @@ public partial class AorTabViewModel : ViewModelBase
     {
         var selectedIds = FilteredAors.Where(r => r.IsSelected).Select(r => r.Id).ToHashSet();
         if (selectedIds.Count == 0) return;
+        Notifier.Info($"Removed {selectedIds.Count:N0} area{(selectedIds.Count == 1 ? "" : "s")} from the current session");
         _allAors.RemoveAll(a => selectedIds.Contains(a.Id));
         RefreshFilteredAors();
     }

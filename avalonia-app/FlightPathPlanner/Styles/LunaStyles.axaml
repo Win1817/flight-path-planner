@@ -1,0 +1,464 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:FlightPathPlanner.Controls">
+
+  <!-- ===================== Typography ===================== -->
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontPageTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.section">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontSectionTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.cardtitle">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontCardTitle}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+    <Setter Property="LineHeight" Value="19" />
+  </Style>
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontSecondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+    <Setter Property="LineHeight" Value="17" />
+  </Style>
+  <Style Selector="TextBlock.meta">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontMeta}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTertiaryBrush}" />
+  </Style>
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, monospace" />
+  </Style>
+  <Style Selector="TextBlock.overline">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTertiaryBrush}" />
+  </Style>
+  <Style Selector="TextBlock.stat">
+    <Setter Property="FontSize" Value="34" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextGradient}" />
+  </Style>
+  <Style Selector="TextBlock.error">
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontSecondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaDangerBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- ===================== Icons ===================== -->
+  <Style Selector="controls|LunaIcon">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Stroke" Value="{DynamicResource LunaSecondaryBrush}" />
+  </Style>
+  <Style Selector="controls|LunaIcon.accent"><Setter Property="Stroke" Value="{DynamicResource LunaLavenderBrush}" /></Style>
+  <Style Selector="controls|LunaIcon.success"><Setter Property="Stroke" Value="{DynamicResource LunaSuccessBrush}" /></Style>
+  <Style Selector="controls|LunaIcon.warning"><Setter Property="Stroke" Value="{DynamicResource LunaWarningBrush}" /></Style>
+  <Style Selector="controls|LunaIcon.danger"><Setter Property="Stroke" Value="{DynamicResource LunaDangerBrush}" /></Style>
+  <Style Selector="controls|LunaIcon.info"><Setter Property="Stroke" Value="{DynamicResource LunaInfoBrush}" /></Style>
+  <Style Selector="controls|LunaIcon.large"><Setter Property="Width" Value="28" /><Setter Property="Height" Value="28" /></Style>
+  <Style Selector="controls|LunaIcon.small"><Setter Property="Width" Value="14" /><Setter Property="Height" Value="14" /></Style>
+
+  <!-- ===================== Buttons ===================== -->
+  <!-- Base button = secondary: dark translucent surface. -->
+  <Style Selector="Button">
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+    <Setter Property="Background" Value="#14FFFFFF" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusMd}" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightSm}" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontBody}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#24FFFFFF" />
+    <Setter Property="BorderBrush" Value="#33FFFFFF" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#0AFFFFFF" />
+    <Setter Property="RenderTransform" Value="scale(0.98)" />
+  </Style>
+  <Style Selector="Button:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaLavenderBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <!-- Primary: purple gradient. -->
+  <Style Selector="Button.primary">
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightMd}" />
+    <Setter Property="Padding" Value="18,0" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.primary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentGradient}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaGlowButton}" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentGradientHover}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentGradientPressed}" />
+  </Style>
+  <Style Selector="Button.primary:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.primary controls|LunaIcon"><Setter Property="Stroke" Value="White" /></Style>
+
+  <!-- Ghost: transparent until hovered. -->
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#14FFFFFF" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+
+  <!-- Destructive: muted rose, not bright red. -->
+  <Style Selector="Button.danger">
+    <Setter Property="Foreground" Value="{DynamicResource LunaDangerBrush}" />
+    <Setter Property="Background" Value="#1AFB7185" />
+    <Setter Property="BorderBrush" Value="#38FB7185" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#2EFB7185" />
+    <Setter Property="BorderBrush" Value="#66FB7185" />
+    <Setter Property="Foreground" Value="#FFC2CB" />
+  </Style>
+  <Style Selector="Button.danger controls|LunaIcon"><Setter Property="Stroke" Value="{DynamicResource LunaDangerBrush}" /></Style>
+
+  <!-- Icon-only square button. -->
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="{DynamicResource LunaControlHeightXs}" />
+    <Setter Property="Height" Value="{DynamicResource LunaControlHeightXs}" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusSm}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.icon.compact">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+  </Style>
+  <Style Selector="Button.icon:pointerover controls|LunaIcon"><Setter Property="Stroke" Value="{DynamicResource LunaTextBrush}" /></Style>
+  <Style Selector="Button.icon.danger:pointerover controls|LunaIcon"><Setter Property="Stroke" Value="{DynamicResource LunaDangerBrush}" /></Style>
+  <Style Selector="Button.small">
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightXs}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusSm}" />
+  </Style>
+
+  <!-- Navigation rail item. -->
+  <Style Selector="Button.nav">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightLg}" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#12FFFFFF" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+    <Setter Property="BorderBrush" Value="#55A78BFA" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.nav:pointerover controls|LunaIcon"><Setter Property="Stroke" Value="{DynamicResource LunaTextBrush}" /></Style>
+  <Style Selector="Button.nav.active controls|LunaIcon"><Setter Property="Stroke" Value="{DynamicResource LunaLavenderBrush}" /></Style>
+
+  <!-- ===================== Text input ===================== -->
+  <Style Selector="TextBox">
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+    <Setter Property="Background" Value="{DynamicResource LunaInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusMd}" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightMd}" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="{DynamicResource LunaFontBody}" />
+    <Setter Property="SelectionBrush" Value="#668B5CF6" />
+    <Setter Property="CaretBrush" Value="{DynamicResource LunaLavenderBrush}" />
+  </Style>
+  <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource LunaInputBrush}" />
+    <Setter Property="BorderBrush" Value="#33FFFFFF" />
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource LunaInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaPurpleBrush}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+  <Style Selector="TextBox.search">
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightMd}" />
+  </Style>
+
+  <!-- ===================== Toggle chip ===================== -->
+  <Style Selector="ToggleButton.chip">
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+    <Setter Property="Background" Value="#10FFFFFF" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ToggleButton.chip /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleButton.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#1FFFFFFF" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+    <Setter Property="BorderBrush" Value="#88A78BFA" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="ToggleButton.chip:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaVioletBrush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="ToggleButton.chip:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaLavenderBrush}" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+
+  <!-- Single-choice chips (radius presets) are Buttons so they stay keyboard accessible. -->
+  <Style Selector="Button.chip">
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+    <Setter Property="Background" Value="#10FFFFFF" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Margin" Value="0,0,6,6" />
+  </Style>
+  <Style Selector="Button.chip.selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+    <Setter Property="BorderBrush" Value="#88A78BFA" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <!-- Single-select list (Report AoR picker). -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="12,9" />
+    <Setter Property="Margin" Value="0,0,0,2" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#14FFFFFF" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+  </Style>
+  <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LunaAccentSoftGradient}" />
+  </Style>
+
+  <!-- ===================== Surfaces ===================== -->
+  <Style Selector="Border.glass">
+    <Setter Property="Background" Value="{DynamicResource LunaGlassBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusXl}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaShadowGlass}" />
+  </Style>
+  <Style Selector="Border.glass.flat">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource LunaCardBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusLg}" />
+    <Setter Property="Padding" Value="14" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaShadowCard}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.card.interactive">
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Border.card.interactive:pointerover">
+    <Setter Property="Background" Value="{DynamicResource LunaCardHoverBrush}" />
+    <Setter Property="BorderBrush" Value="#33FFFFFF" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaShadowRaised}" />
+  </Style>
+  <Style Selector="Border.card.selected">
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaAccentBorderBrush}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaGlowSelected}" />
+  </Style>
+  <Style Selector="Border.card.quiet">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+    <Setter Property="Background" Value="#66181523" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
+  <Style Selector="Border.divider">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Background" Value="{DynamicResource LunaHairlineBrush}" />
+  </Style>
+
+  <!-- Status / count pills. Child TextBlock takes the semantic colour. -->
+  <Style Selector="Border.pill">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="Background" Value="#14FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="#14FFFFFF" />
+  </Style>
+  <Style Selector="Border.pill > TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+  </Style>
+  <Style Selector="Border.pill.success"><Setter Property="Background" Value="#1A34D399" /><Setter Property="BorderBrush" Value="#3334D399" /></Style>
+  <Style Selector="Border.pill.success > TextBlock"><Setter Property="Foreground" Value="{DynamicResource LunaSuccessBrush}" /></Style>
+  <Style Selector="Border.pill.warning"><Setter Property="Background" Value="#1AFBBF24" /><Setter Property="BorderBrush" Value="#33FBBF24" /></Style>
+  <Style Selector="Border.pill.warning > TextBlock"><Setter Property="Foreground" Value="{DynamicResource LunaWarningBrush}" /></Style>
+  <Style Selector="Border.pill.danger"><Setter Property="Background" Value="#1AFB7185" /><Setter Property="BorderBrush" Value="#33FB7185" /></Style>
+  <Style Selector="Border.pill.danger > TextBlock"><Setter Property="Foreground" Value="{DynamicResource LunaDangerBrush}" /></Style>
+  <Style Selector="Border.pill.info"><Setter Property="Background" Value="#1A60A5FA" /><Setter Property="BorderBrush" Value="#3360A5FA" /></Style>
+  <Style Selector="Border.pill.info > TextBlock"><Setter Property="Foreground" Value="{DynamicResource LunaInfoBrush}" /></Style>
+  <Style Selector="Border.pill.accent"><Setter Property="Background" Value="#248B5CF6" /><Setter Property="BorderBrush" Value="#448B5CF6" /></Style>
+  <Style Selector="Border.pill.accent > TextBlock"><Setter Property="Foreground" Value="{DynamicResource LunaLavenderBrush}" /></Style>
+
+  <!-- Nav badge. -->
+  <Style Selector="Border.badge">
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="MinWidth" Value="22" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="Background" Value="#1AFFFFFF" />
+  </Style>
+  <Style Selector="Border.badge > TextBlock">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.nav.active Border.badge"><Setter Property="Background" Value="#338B5CF6" /></Style>
+  <Style Selector="Button.nav.active Border.badge > TextBlock"><Setter Property="Foreground" Value="White" /></Style>
+
+  <!-- Status dot inside a card. -->
+  <Style Selector="Ellipse.dot">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="8" />
+  </Style>
+
+  <!-- ===================== Toast ===================== -->
+  <Style Selector="Border.toast">
+    <Setter Property="Background" Value="{DynamicResource LunaGlassStrongBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusLg}" />
+    <Setter Property="Padding" Value="12,10" />
+    <Setter Property="BoxShadow" Value="{DynamicResource LunaShadowGlass}" />
+  </Style>
+
+  <!-- ===================== Misc controls ===================== -->
+  <Style Selector="DatePicker">
+    <Setter Property="Background" Value="{DynamicResource LunaInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaGlassBorderBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource LunaRadiusMd}" />
+    <Setter Property="MinHeight" Value="{DynamicResource LunaControlHeightSm}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="ProgressBar">
+    <Setter Property="Foreground" Value="{DynamicResource LunaPurpleBrush}" />
+    <Setter Property="Background" Value="#1AFFFFFF" />
+    <Setter Property="MinHeight" Value="3" />
+    <Setter Property="Height" Value="3" />
+  </Style>
+  <Style Selector="ScrollBar">
+    <Setter Property="AllowAutoHide" Value="True" />
+  </Style>
+  <Style Selector="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource LunaSurface2Brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource LunaTextBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LunaBorderBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <!-- Tab page fade: pages stay alive (their lists are expensive to rebuild); only opacity animates. -->
+  <Style Selector="ContentControl.page">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ContentControl.page.active">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+</Styles>

@@ -1,7 +1,6 @@
-using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using FlightPathPlanner.ViewModels;
 
 namespace FlightPathPlanner.Views;
@@ -17,83 +16,44 @@ public partial class OpsTabView : UserControl
 
     private async void UploadButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
+        var vm = ViewModel;
+        if (vm == null) return;
+        if (await FileDialogs.PickJsonAsync(this, "Upload OPS JSON") is not { } picked) return;
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = "Upload OPS JSON",
-            AllowMultiple = false,
-            FileTypeFilter = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
-        });
-
-        var file = files.Count > 0 ? files[0] : null;
-        if (file == null) return;
-
-        await using var stream = await file.OpenReadAsync();
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        var text = await reader.ReadToEndAsync();
-
-        ViewModel?.LoadFromJson(text, file.Name);
+        // Parsing runs on the UI thread; let the "loading" card paint first.
+        vm.BusyText = $"Loading {picked.Name}…";
+        vm.IsBusy = true;
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        try { vm.LoadFromJson(picked.Text, picked.Name); }
+        finally { vm.IsBusy = false; }
     }
 
     private async void ExportJsonButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var vm = ViewModel;
-        if (vm == null) return;
-
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
-
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export OPS as JSON",
-            SuggestedFileName = $"ops-{DateTime.UtcNow:yyyy-MM-dd}.json",
-            FileTypeChoices = new[] { new FilePickerFileType("JSON") { Patterns = new[] { "*.json" } } },
-        });
-        if (file == null) return;
-
-        var json = vm.ExportSelectedToJson();
-        await using var stream = await file.OpenWriteAsync();
-        await using var writer = new StreamWriter(stream, Encoding.UTF8);
-        await writer.WriteAsync(json);
+        if (ViewModel is { } vm)
+            await FileDialogs.SaveJsonAsync(this, "Export OPS as JSON", $"ops-{DateTime.UtcNow:yyyy-MM-dd}.json", vm.ExportSelectedToJson);
     }
 
     private async void ExportXlsxButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        var vm = ViewModel;
-        if (vm == null) return;
-
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
-
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Export OPS as XLSX",
-            SuggestedFileName = $"ops-{DateTime.UtcNow:yyyy-MM-dd}.xlsx",
-            FileTypeChoices = new[] { new FilePickerFileType("Excel Workbook") { Patterns = new[] { "*.xlsx" } } },
-        });
-        if (file == null) return;
-
-        var bytes = vm.ExportSelectedToXlsxBytes();
-        await using var stream = await file.OpenWriteAsync();
-        await stream.WriteAsync(bytes);
+        if (ViewModel is { } vm)
+            await FileDialogs.SaveXlsxAsync(this, "Export OPS as XLSX", $"ops-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", vm.ExportSelectedToXlsxBytes);
     }
 
     private void OpRow_Tapped(object? sender, TappedEventArgs e)
     {
-        if (sender is Control { Tag: OpsRowViewModel row })
-        {
-            ViewModel?.ActivateOpCommand.Execute(row);
-        }
+        if (sender is Control { Tag: OpsRowViewModel row }) ViewModel?.ActivateOpCommand.Execute(row);
     }
 
     private void DeleteOpButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (sender is Control { Tag: OpsRowViewModel row })
-        {
-            ViewModel?.DeleteOpCommand.Execute(row);
-        }
+        if (sender is Control { Tag: OpsRowViewModel row }) ViewModel?.DeleteOpCommand.Execute(row);
+    }
+
+    // Keep room for the list: the inspector never takes more than about a third of the tab's height.
+    private void Root_SizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        InspectorCard.MaxHeight = Math.Clamp(e.NewSize.Height * 0.34, 150, 340);
     }
 
     private void CloseDetailsButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

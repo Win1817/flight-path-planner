@@ -85,7 +85,7 @@ function initMap() {
         },
       },
       layers: [
-        { id: 'bg', type: 'background', paint: { 'background-color': '#0b0f19' } },
+        { id: 'bg', type: 'background', paint: { 'background-color': '#0B0A12' } },
         { id: 'basemap-layer', type: 'raster', source: 'basemap', minzoom: 0, maxzoom: 20 },
         { id: 'basemap-labels-layer', type: 'raster', source: 'basemap-labels', minzoom: 0, maxzoom: 20 },
       ],
@@ -180,16 +180,15 @@ function applyData(geojson) {
   }
 }
 
+const ZONE_COLOR = ['coalesce', ['get', 'color'], '#888888'];
+
 function applyHighlights(ids) {
   const hasHighlights = ids.length > 0;
-  map.setPaintProperty('zones-fill', 'fill-opacity',
-    hasHighlights
-      ? ['case', ['any', ['in', ['get', 'opsId'], ['literal', ids]], ['in', ['get', 'aorId'], ['literal', ids]]], 0.5, 0.15]
-      : 0.25);
-  map.setPaintProperty('zones-outline', 'line-width',
-    hasHighlights
-      ? ['case', ['any', ['in', ['get', 'opsId'], ['literal', ids]], ['in', ['get', 'aorId'], ['literal', ids]]], 3, 1]
-      : 1.5);
+  const isHighlighted = ['any', ['in', ['get', 'opsId'], ['literal', ids]], ['in', ['get', 'aorId'], ['literal', ids]]];
+  map.setPaintProperty('zones-fill', 'fill-opacity', hasHighlights ? ['case', isHighlighted, 0.5, 0.15] : 0.25);
+  // Highlighted shapes get a Luna-lavender outline so they stand out from every data colour.
+  map.setPaintProperty('zones-outline', 'line-color', hasHighlights ? ['case', isHighlighted, '#C4B5FD', ZONE_COLOR] : ZONE_COLOR);
+  map.setPaintProperty('zones-outline', 'line-width', hasHighlights ? ['case', isHighlighted, 3, 1] : 1.5);
 }
 
 // ---- Entry points called from C# ----

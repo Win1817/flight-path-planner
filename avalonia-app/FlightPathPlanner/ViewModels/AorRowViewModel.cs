@@ -19,6 +19,9 @@ public partial class AorRowViewModel(ParsedAor aor) : ViewModelBase
 
     // --- Details panel ---
     public string? Restriction => Aor.Restriction;
+    public bool IsProhibited => Aor.Restriction == "PROHIBITED";
+    public bool IsNoRestriction => Aor.Restriction == "NO_RESTRICTION";
+    public bool IsConditionalRestriction => !string.IsNullOrEmpty(Aor.Restriction) && !IsProhibited && !IsNoRestriction;
     public bool HasRestriction => !string.IsNullOrEmpty(Aor.Restriction);
     public string RestrictionDisplay => (Aor.Restriction ?? "").Replace('_', ' ');
     public string? Message => Aor.Message;

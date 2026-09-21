@@ -26,6 +26,7 @@ public partial class LookupTabViewModel : ViewModelBase
         _opsTab = opsTab;
         _httpClient = httpClient;
         _opsTab.PropertyChanged += OnOpsTabPropertyChanged;
+        UpdatePresetSelection();
     }
 
     public ObservableCollection<RadiusPresetOptionViewModel> RadiusPresets { get; } =
@@ -76,7 +77,18 @@ public partial class LookupTabViewModel : ViewModelBase
     }
 
     partial void OnQueryChanged(string value) => OnPropertyChanged(nameof(CanSearch));
-    partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(CanSearch));
+    partial void OnIsLoadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanSearch));
+        OnPropertyChanged(nameof(SearchButtonText));
+    }
+
+    public string SearchButtonText => IsLoading ? "Searching…" : "Search";
+
+    private void UpdatePresetSelection()
+    {
+        foreach (var preset in RadiusPresets) preset.IsSelected = Math.Abs(preset.Km - RadiusKm) < 1e-9;
+    }
 
     partial void OnCenterChanged(GeocodeResult? value)
     {
@@ -88,6 +100,7 @@ public partial class LookupTabViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(RadiusSummaryDisplay));
         OnPropertyChanged(nameof(RadiusKmText));
+        UpdatePresetSelection();
         RefreshMatches();
     }
 

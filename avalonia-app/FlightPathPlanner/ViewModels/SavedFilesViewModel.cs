@@ -16,13 +16,27 @@ public partial class SavedFilesViewModel : ViewModelBase
 
     /// <param name="loader">Called with (json text, original file name) when the user reloads a file; returns whether it
     /// loaded. Null for categories that can't be reloaded (reports).</param>
-    public SavedFilesViewModel(LocalStorageService? storage, StorageCategory category, Func<string, string, bool>? loader = null)
+    /// <param name="title">Section title, e.g. "OPS uploads".</param>
+    public SavedFilesViewModel(LocalStorageService? storage, StorageCategory category, Func<string, string, bool>? loader = null,
+        string? title = null)
     {
         _storage = storage;
         _category = category;
         _loader = loader;
+        Title = title ?? category switch
+        {
+            StorageCategory.Ops => "OPS uploads",
+            StorageCategory.Aor => "AoR uploads",
+            _ => "Report exports",
+        };
+        IsExpanded = true;
         Refresh();
     }
+
+    public string Title { get; }
+
+    /// <summary>Raised after a saved file was successfully reloaded into its tab.</summary>
+    public event Action? Loaded;
 
     [ObservableProperty]
     public partial ObservableCollection<SavedFileRowViewModel> Rows { get; set; } = new();
@@ -43,20 +57,20 @@ public partial class SavedFilesViewModel : ViewModelBase
     public int ArchivedCount { get; private set; }
 
     public bool IsAvailable => _storage != null;
+    public string? StorageLocation => _storage?.RootDirectory;
     public bool CanLoad => _loader != null;
     public bool HasRows => Rows.Count > 0;
     public bool HasNoRows => !HasRows;
     public bool HasStatus => !string.IsNullOrEmpty(StatusMessage);
     public int SelectedCount => Rows.Count(r => r.IsSelected);
     public bool HasSelection => SelectedCount > 0;
-    public string HeaderText => $"Saved locally ({ActiveCount})";
-    public string ExpandGlyph => IsExpanded ? "▾" : "▸";
+    public string HeaderText => $"{Title} ({ActiveCount})";
+    public string ConfirmBulkDeleteText => $"Permanently delete {SelectedCount} selected file(s)? This cannot be undone.";
     public string ArchiveToggleText => ShowArchived ? $"Back to saved ({ActiveCount})" : $"Archive ({ArchivedCount})";
     public string ArchiveSelectedText => ShowArchived ? "Restore selected" : "Archive selected";
     public string EmptyText => ShowArchived ? "Nothing archived." : "Nothing saved yet — uploads are saved automatically.";
     public string DeleteSelectedText => ConfirmingBulkDelete ? $"Confirm delete ({SelectedCount})" : "Delete selected";
 
-    partial void OnIsExpandedChanged(bool value) => OnPropertyChanged(nameof(ExpandGlyph));
     partial void OnShowArchivedChanged(bool value) => Refresh();
     partial void OnStatusMessageChanged(string? value) => OnPropertyChanged(nameof(HasStatus));
     partial void OnConfirmingBulkDeleteChanged(bool value) => OnPropertyChanged(nameof(DeleteSelectedText));
@@ -110,6 +124,7 @@ public partial class SavedFilesViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(DeleteSelectedText));
+        OnPropertyChanged(nameof(ConfirmBulkDeleteText));
     }
 
     /// <summary>Saves newly uploaded/exported content. Failures are shown in the panel instead of interrupting the user.</summary>
@@ -135,6 +150,7 @@ public partial class SavedFilesViewModel : ViewModelBase
         {
             var ok = _loader(_storage.ReadText(row.File), row.File.DisplayName);
             StatusMessage = ok ? null : $"{row.DisplayName} couldn't be loaded (see the error above).";
+            if (ok) Loaded?.Invoke();
         }
         catch (Exception ex)
         {
@@ -144,7 +160,16 @@ public partial class SavedFilesViewModel : ViewModelBase
 
     public void ToggleArchive(SavedFileRowViewModel row) => Run(() =>
     {
-        if (row.File.IsArchived) _storage!.Unarchive(row.File); else _storage!.Archive(row.File);
+        if (row.File.IsArchived)
+        {
+            _storage!.Unarchive(row.File);
+            Notifier.Success($"Restored {row.DisplayName}");
+        }
+        else
+        {
+            _storage!.Archive(row.File);
+            Notifier.Info($"Archived {row.DisplayName}");
+        }
     });
 
     /// <summary>Two-step delete: the first call asks for confirmation on the row, the second deletes.</summary>
@@ -156,7 +181,11 @@ public partial class SavedFilesViewModel : ViewModelBase
             row.ConfirmingDelete = true;
             return;
         }
-        Run(() => _storage!.Delete(row.File));
+        Run(() =>
+        {
+            _storage!.Delete(row.File);
+            Notifier.Info($"Deleted {row.DisplayName}");
+        });
     }
 
     public void CancelDelete(SavedFileRowViewModel row) => row.ConfirmingDelete = false;
@@ -188,6 +217,7 @@ public partial class SavedFilesViewModel : ViewModelBase
             {
                 if (ShowArchived) _storage!.Unarchive(r.File); else _storage!.Archive(r.File);
             }
+            Notifier.Info(ShowArchived ? $"Restored {selected.Count} file(s)" : $"Archived {selected.Count} file(s)");
         });
     }
 
@@ -203,6 +233,7 @@ public partial class SavedFilesViewModel : ViewModelBase
         Run(() =>
         {
             foreach (var r in selected) _storage!.Delete(r.File);
+            Notifier.Info($"Deleted {selected.Count} file(s)");
         });
     }
 
@@ -220,6 +251,7 @@ public partial class SavedFilesViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+            Notifier.Error(ex.Message);
         }
         Refresh();
     }

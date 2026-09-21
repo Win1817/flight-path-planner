@@ -45,6 +45,11 @@ public partial class MainWindow : Window
         };
     }
 
+    private void DismissToast_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is ToastViewModel toast) _vm?.Toasts.Dismiss(toast);
+    }
+
     private void OnMapDataInvalidated()
     {
         _dataTimer.Stop();

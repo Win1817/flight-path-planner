@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FlightPathPlanner.ViewModels"
+             xmlns:views="using:FlightPathPlanner.Views"
+             xmlns:controls="using:FlightPathPlanner.Controls"
+             x:Class="FlightPathPlanner.Views.SavedTabView"
+             x:DataType="vm:SavedTabViewModel">
+
+  <Grid>
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260" IsVisible="{Binding IsUnavailable}">
+      <controls:LunaIcon Classes="large danger" Data="{StaticResource IconAlert}" HorizontalAlignment="Center" />
+      <TextBlock Text="Local storage is unavailable" Classes="section" HorizontalAlignment="Center" />
+      <TextBlock Text="Uploads and exports can't be kept on this machine." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <ScrollViewer Padding="0,0,12,0" IsVisible="{Binding IsAvailable}">
+      <StackPanel Spacing="12">
+        <StackPanel Spacing="2">
+          <TextBlock Text="Every upload and report export is kept here automatically." Classes="secondary" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding LocationText}" Classes="meta mono" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LocationText}" />
+        </StackPanel>
+        <views:SavedFilesPanel DataContext="{Binding Ops}" />
+        <views:SavedFilesPanel DataContext="{Binding Aor}" />
+        <views:SavedFilesPanel DataContext="{Binding Report}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

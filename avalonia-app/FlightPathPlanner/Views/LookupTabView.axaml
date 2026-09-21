@@ -2,127 +2,160 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FlightPathPlanner.ViewModels"
              xmlns:svc="using:FlightPathPlanner.Services"
+             xmlns:controls="using:FlightPathPlanner.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="380"
+             mc:Ignorable="d" d:DesignWidth="344"
              x:Class="FlightPathPlanner.Views.LookupTabView"
              x:DataType="vm:LookupTabViewModel">
 
   <Grid>
 
-    <!-- Empty state: no OPS data loaded yet -->
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" Margin="20"
-                IsVisible="{Binding !HasOps}">
-      <TextBlock Text="Upload OPS data to look up flight plans by location" Foreground="#9aa4b8"
-                 FontSize="12" TextAlignment="Center" TextWrapping="Wrap" />
+    <!-- Empty state -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260" IsVisible="{Binding !HasOps}">
+      <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource LunaAccentTintBrush}" HorizontalAlignment="Center">
+        <controls:LunaIcon Classes="accent large" Data="{StaticResource IconCrosshair}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <TextBlock Text="No OPS to search" Classes="section" HorizontalAlignment="Center" Margin="0,6,0,0" />
+      <TextBlock Text="Upload OPS data to look up flight plans by location." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
     </StackPanel>
 
-    <ScrollViewer Padding="0,0,14,0" IsVisible="{Binding HasOps}">
-      <StackPanel Spacing="14">
+    <ScrollViewer Padding="0,0,12,0" IsVisible="{Binding HasOps}">
+      <StackPanel Spacing="16">
 
         <!-- Location search -->
-        <StackPanel Spacing="6">
-          <TextBlock Text="Location" FontSize="11" Foreground="#9aa4b8" />
-          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <TextBox Grid.Column="0" Name="QueryTextBox" Text="{Binding Query}"
-                     Watermark="Address, city, or lat:long" KeyDown="QueryTextBox_KeyDown" />
-            <Button Grid.Column="1" Content="Search" Command="{Binding SearchCommand}"
-                    IsEnabled="{Binding CanSearch}" />
-          </Grid>
-          <TextBlock Text="e.g. &quot;Iloilo City&quot; or &quot;10.7202, 122.5621&quot;" FontSize="10" Foreground="#6b7488" />
+        <StackPanel Spacing="8">
+          <TextBlock Text="LOCATION" Classes="overline" />
+          <TextBox Classes="search" Name="QueryTextBox" Text="{Binding Query}" Watermark="Address or coordinates"
+                   KeyDown="QueryTextBox_KeyDown" AutomationProperties.Name="Address or coordinates">
+            <TextBox.InnerLeftContent>
+              <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
+            </TextBox.InnerLeftContent>
+          </TextBox>
+          <TextBlock Text="Try &quot;Iloilo City&quot;, &quot;10.7202, 122.5621&quot; or &quot;10.7202:122.5621&quot;" Classes="meta" TextWrapping="Wrap" />
         </StackPanel>
 
         <!-- Radius -->
-        <StackPanel Spacing="6">
-          <TextBlock Text="Radius" FontSize="11" Foreground="#9aa4b8" />
-          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="4">
-            <TextBox Grid.Column="0" Text="{Binding RadiusKmText}" Width="70" />
-            <TextBlock Grid.Column="1" Text="km" VerticalAlignment="Center" Foreground="#9aa4b8" FontSize="12" />
-          </Grid>
+        <StackPanel Spacing="8">
+          <TextBlock Text="RADIUS" Classes="overline" />
           <ItemsControl ItemsSource="{Binding RadiusPresets}">
             <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RadiusPresetOptionViewModel">
-                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="12"
-                        Padding="8,3" Margin="0,0,4,4" Cursor="Hand" Tag="{Binding}" Tapped="RadiusPreset_Tapped">
-                  <TextBlock Text="{Binding Label}" FontSize="11" />
-                </Border>
+                <Button Classes="chip" Classes.selected="{Binding IsSelected}" Content="{Binding Label}" Tag="{Binding}"
+                        Click="RadiusPreset_Click" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+            <TextBox Text="{Binding RadiusKmText}" Width="84" AutomationProperties.Name="Custom radius in kilometres" />
+            <TextBlock Grid.Column="1" Text="km (custom)" Classes="secondary" VerticalAlignment="Center" />
+          </Grid>
         </StackPanel>
 
-        <Border Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
-                Padding="10,8" IsVisible="{Binding HasError}">
-          <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+        <Button Classes="primary" Command="{Binding SearchCommand}" IsEnabled="{Binding CanSearch}" HorizontalAlignment="Stretch"
+                AutomationProperties.Name="Search">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <controls:LunaIcon Data="{StaticResource IconSearch}" />
+            <TextBlock Text="{Binding SearchButtonText}" />
+          </StackPanel>
+        </Button>
+
+        <Border Classes="card quiet" BorderBrush="#40FB7185" IsVisible="{Binding HasError}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <controls:LunaIcon Classes="danger" Data="{StaticResource IconAlert}" VerticalAlignment="Top" />
+            <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" Classes="error" />
+          </Grid>
         </Border>
 
-        <StackPanel Spacing="6" IsVisible="{Binding HasCandidates}">
-          <TextBlock Text="Multiple matches — pick one" FontSize="11" Foreground="#9aa4b8" />
+        <StackPanel Spacing="8" IsVisible="{Binding HasCandidates}">
+          <TextBlock Text="MULTIPLE MATCHES — PICK ONE" Classes="overline" />
           <ItemsControl ItemsSource="{Binding Candidates}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="svc:GeocodeResult">
-                <Border Background="#151a28" CornerRadius="6" Padding="8,6" Margin="0,0,0,4"
-                        Cursor="Hand" Tag="{Binding}" Tapped="Candidate_Tapped">
-                  <TextBlock Text="{Binding DisplayName}" FontSize="11" TextWrapping="Wrap" />
+                <Border Classes="card quiet interactive" Margin="0,0,0,6" Tag="{Binding}" Tapped="Candidate_Tapped">
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <controls:LunaIcon Classes="accent" Data="{StaticResource IconMapPin}" VerticalAlignment="Top" />
+                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" Classes="body" TextWrapping="Wrap" />
+                  </Grid>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </StackPanel>
 
-        <StackPanel Spacing="10" IsVisible="{Binding HasCenter}">
-
-          <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8" Padding="14">
-            <StackPanel Spacing="2">
-              <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding Center.DisplayName}" FontWeight="SemiBold" FontSize="13"
-                           TextTrimming="CharacterEllipsis" />
-                <Button Grid.Column="1" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
-                        Command="{Binding ClearCommand}" />
+        <!-- Results -->
+        <StackPanel Spacing="12" IsVisible="{Binding HasCenter}">
+          <Border Classes="card selected">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <controls:LunaIcon Classes="accent" Data="{StaticResource IconMapPin}" VerticalAlignment="Top" />
+                <TextBlock Grid.Column="1" Text="{Binding Center.DisplayName}" Classes="cardtitle" />
+                <Button Grid.Column="2" Classes="icon compact ghost" Command="{Binding ClearCommand}" VerticalAlignment="Top"
+                        AutomationProperties.Name="Clear search" ToolTip.Tip="Clear search">
+                  <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />
+                </Button>
               </Grid>
-              <TextBlock Text="{Binding CenterCoordinatesDisplay}" FontSize="11" Foreground="#6b7488" FontFamily="monospace" />
-              <TextBlock Text="{Binding MatchCount}" FontSize="24" FontWeight="Bold" />
-              <TextBlock Text="{Binding RadiusSummaryDisplay}" FontSize="11" Foreground="#9aa4b8" />
+              <TextBlock Text="{Binding CenterCoordinatesDisplay}" Classes="meta mono" />
+              <TextBlock Text="{Binding MatchCount}" Classes="stat" Margin="0,8,0,0" />
+              <TextBlock Text="{Binding RadiusSummaryDisplay}" Classes="secondary" />
             </StackPanel>
           </Border>
 
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="{Binding HasMatches}">
-            <Button Grid.Column="0" Content="Export JSON" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
-            <Button Grid.Column="1" Content="Export XLSX" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasMatches}">
+            <Button HorizontalAlignment="Stretch" Click="ExportJsonButton_Click" AutomationProperties.Name="Export matches as JSON">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <controls:LunaIcon Classes="small" Data="{StaticResource IconDownload}" />
+                <TextBlock Text="JSON" />
+              </StackPanel>
+            </Button>
+            <Button Grid.Column="1" HorizontalAlignment="Stretch" Click="ExportXlsxButton_Click" AutomationProperties.Name="Export matches as XLSX">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <controls:LunaIcon Classes="small" Data="{StaticResource IconDownload}" />
+                <TextBlock Text="XLSX" />
+              </StackPanel>
+            </Button>
           </Grid>
 
-          <TextBlock Text="No flight plans within this radius." Foreground="#6b7488" FontSize="11"
-                     TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" IsVisible="{Binding HasNoMatches}" />
+          <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,4,0,0" IsVisible="{Binding HasNoMatches}">
+            <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
+            <TextBlock Text="No flight plans within this radius" Classes="cardtitle" HorizontalAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
 
           <ItemsControl ItemsSource="{Binding MatchingOps}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:OpsRowViewModel">
-                <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
-                        Padding="12" Margin="0,0,0,8">
+                <Border Classes="card" Padding="12" Margin="0,0,0,8">
                   <StackPanel Spacing="4">
-                    <Grid ColumnDefinitions="*,Auto">
-                      <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Ellipse Classes="dot" Fill="{Binding Color}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="cardtitle" />
+                      </Grid>
+                      <StackPanel Grid.Column="1">
+                        <Border Classes="pill success" IsVisible="{Binding IsActiveStatus}"><TextBlock Text="Active" /></Border>
+                        <Border Classes="pill warning" IsVisible="{Binding IsPendingStatus}"><TextBlock Text="Pending" /></Border>
+                        <Border Classes="pill" IsVisible="{Binding IsExpiredStatus}"><TextBlock Text="Expired" /></Border>
+                      </StackPanel>
                     </Grid>
-                    <TextBlock Text="{Binding OperationPlanId}" FontSize="11" Foreground="#6b7488" FontFamily="monospace"
-                               TextTrimming="CharacterEllipsis" />
-                    <Grid ColumnDefinitions="*,*">
-                      <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}" FontSize="11" Foreground="#9aa4b8" />
-                      <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="11" Foreground="#9aa4b8" HorizontalAlignment="Right" />
-                    </Grid>
+                    <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="14" Margin="0,2,0,0">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:LunaIcon Classes="small" Data="{StaticResource IconClock}" />
+                        <TextBlock Text="{Binding StartTimeDisplay}" Classes="meta" />
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:LunaIcon Classes="small" Data="{StaticResource IconLayers}" />
+                        <TextBlock Text="{Binding AreaDisplay}" Classes="meta" />
+                      </StackPanel>
+                    </StackPanel>
                   </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-
         </StackPanel>
 
       </StackPanel>

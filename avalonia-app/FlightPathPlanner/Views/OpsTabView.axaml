@@ -1,182 +1,259 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FlightPathPlanner.ViewModels"
-             xmlns:views="using:FlightPathPlanner.Views"
+             xmlns:controls="using:FlightPathPlanner.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="380"
+             mc:Ignorable="d" d:DesignWidth="344"
              x:Class="FlightPathPlanner.Views.OpsTabView"
+             SizeChanged="Root_SizeChanged"
              x:DataType="vm:OpsTabViewModel">
 
   <DockPanel>
 
-    <!-- Upload -->
-    <Border DockPanel.Dock="Top" Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
-            CornerRadius="8" Padding="16" Margin="0,0,0,8">
-      <StackPanel Spacing="6" HorizontalAlignment="Center">
-        <Button Name="UploadButton" Content="Upload OPS JSON" HorizontalAlignment="Center" Click="UploadButton_Click" />
-        <TextBlock Text="{Binding UploadedFileName}" FontSize="11" Foreground="#9aa4b8"
-                   HorizontalAlignment="Center" IsVisible="{Binding UploadedFileName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    <!-- Loaded file + replace, or the empty state when nothing is loaded. -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,12"
+          IsVisible="{Binding HasOps}">
+      <Border Width="34" Height="34" CornerRadius="10" Background="{DynamicResource LunaAccentTintBrush}">
+        <controls:LunaIcon Classes="accent" Data="{StaticResource IconFile}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+        <TextBlock Text="{Binding UploadedFileName}" Classes="cardtitle" />
+        <TextBlock Text="OPS data" Classes="meta" />
+      </StackPanel>
+      <Button Grid.Column="2" Content="Replace" Classes="small" Click="UploadButton_Click" VerticalAlignment="Center"
+              AutomationProperties.Name="Upload a different OPS JSON file" />
+    </Grid>
+
+    <!-- Loading -->
+    <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" IsVisible="{Binding IsBusy}">
+      <StackPanel Spacing="8">
+        <TextBlock Text="{Binding BusyText}" Classes="secondary" />
+        <ProgressBar IsIndeterminate="True" />
       </StackPanel>
     </Border>
 
-    <views:SavedFilesPanel DockPanel.Dock="Top" DataContext="{Binding SavedFiles}" Margin="0,0,0,8" />
-
-    <Border DockPanel.Dock="Top" Background="#3a1a1a" BorderBrush="#5a2a2a" BorderThickness="1" CornerRadius="6"
-            Padding="10,8" Margin="0,0,0,8"
+    <!-- Error -->
+    <Border DockPanel.Dock="Top" Classes="card quiet" Margin="0,0,0,12" BorderBrush="#40FB7185"
             IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-      <TextBlock Text="{Binding ErrorMessage}" Foreground="#f87171" FontSize="12" TextWrapping="Wrap" />
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+        <controls:LunaIcon Classes="danger" Data="{StaticResource IconAlert}" VerticalAlignment="Top" />
+        <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" Classes="error" />
+      </Grid>
     </Border>
 
     <!-- Footer: selection summary + export/delete -->
-    <Border DockPanel.Dock="Bottom" BorderBrush="#232a3a" BorderThickness="0,1,0,0" Padding="0,8,0,0"
-            IsVisible="{Binding HasSelection}">
-      <StackPanel Spacing="8">
+    <Border DockPanel.Dock="Bottom" Classes="card quiet" Margin="0,10,0,0" IsVisible="{Binding HasSelection}">
+      <StackPanel Spacing="10">
         <Grid ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="Total Selected Area" Foreground="#9aa4b8" FontSize="12" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding TotalSelectedAreaDisplay}" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <StackPanel>
+            <TextBlock Text="TOTAL SELECTED AREA" Classes="overline" />
+            <TextBlock Text="{Binding TotalSelectedAreaDisplay}" FontSize="16" FontWeight="SemiBold" />
+          </StackPanel>
+          <Border Grid.Column="1" Classes="pill accent" VerticalAlignment="Center">
+            <TextBlock Text="{Binding SelectAllLabel}" />
+          </Border>
         </Grid>
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-          <Button Grid.Column="0" Name="ExportJsonButton" Content="Export JSON" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center" Click="ExportJsonButton_Click" />
-          <Button Grid.Column="1" Name="ExportXlsxButton" Content="Export XLSX" HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Center" Click="ExportXlsxButton_Click" />
+        <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
+          <Button HorizontalAlignment="Stretch" Click="ExportJsonButton_Click" AutomationProperties.Name="Export selection as JSON">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <controls:LunaIcon Classes="small" Data="{StaticResource IconDownload}" />
+              <TextBlock Text="JSON" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="1" HorizontalAlignment="Stretch" Click="ExportXlsxButton_Click" AutomationProperties.Name="Export selection as XLSX">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <controls:LunaIcon Classes="small" Data="{StaticResource IconDownload}" />
+              <TextBlock Text="XLSX" />
+            </StackPanel>
+          </Button>
+          <Button Grid.Column="2" Classes="danger" Command="{Binding DeleteSelectedCommand}" Width="40" Padding="0"
+                  AutomationProperties.Name="Delete selected" ToolTip.Tip="Remove selected from this session">
+            <controls:LunaIcon Data="{StaticResource IconTrash}" />
+          </Button>
         </Grid>
-        <Button Content="Delete Selected" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                Background="#7f1d1d" Command="{Binding DeleteSelectedCommand}" />
       </StackPanel>
     </Border>
 
-    <!-- Details panel for the active op. IsVisible stays on the outer element (OpsTabViewModel-
-         scoped); the DataContext override to the row only happens on the inner Border, so the
-         two bindings don't fight over which type the compiled binding is checked against. -->
+    <!-- Details (inspector). IsVisible stays on the outer element (tab scope); the DataContext override to the row
+         happens on the inner element only, so the two bindings never fight over their type. -->
     <Border DockPanel.Dock="Bottom" IsVisible="{Binding ActiveOp, Converter={x:Static ObjectConverters.IsNotNull}}">
-     <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1"
-            CornerRadius="8" Padding="14" Margin="0,8,0,0" MaxHeight="360"
-            DataContext="{Binding ActiveOp}">
-      <ScrollViewer x:DataType="vm:OpsRowViewModel">
-        <StackPanel Spacing="8">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" />
-            <Button Grid.Column="1" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
-                    Click="CloseDetailsButton_Click" />
-          </Grid>
-          <TextBlock Text="{Binding Status}" Foreground="#9aa4b8" FontSize="11" />
-          <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="12" Foreground="#c3cad9"
-                     IsVisible="{Binding HasDescription}" />
-          <TextBlock Text="{Binding OperationPlanId}" FontFamily="monospace" FontSize="11" Foreground="#6b7488" />
+      <Border x:Name="InspectorCard" Classes="card" Margin="0,10,0,0" Padding="0" MaxHeight="270" DataContext="{Binding ActiveOp}">
+        <ScrollViewer x:DataType="vm:OpsRowViewModel" Padding="0,0,10,0">
+          <StackPanel Margin="16,14,6,16" Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="OPERATION DETAILS" Classes="overline" />
+                <TextBlock Text="{Binding Title}" Classes="section" TextWrapping="Wrap" Margin="0,2,0,0" />
+                <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" Margin="0,2,0,0" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="icon ghost" VerticalAlignment="Top" Click="CloseDetailsButton_Click"
+                      AutomationProperties.Name="Close details">
+                <controls:LunaIcon Data="{StaticResource IconX}" />
+              </Button>
+            </Grid>
+            <Border Classes="divider" />
 
-          <StackPanel Spacing="2" IsVisible="{Binding HasStatusInfo}">
-            <TextBlock Text="Status" FontSize="10" Foreground="#6b7488" />
-            <TextBlock Text="{Binding StateAndClosureReasonDisplay}" FontSize="12" />
-          </StackPanel>
-
-          <StackPanel Spacing="2" IsVisible="{Binding HasOperator}">
-            <TextBlock Text="Operator" FontSize="10" Foreground="#6b7488" />
-            <TextBlock Text="{Binding Operator}" FontSize="12" FontFamily="monospace" />
-          </StackPanel>
-
-          <StackPanel Spacing="2">
-            <TextBlock Text="Time (UTC)" FontSize="10" Foreground="#6b7488" />
-            <TextBlock FontSize="12" FontFamily="monospace" Text="{Binding StartTimeFullDisplay}" />
-            <TextBlock FontSize="12" FontFamily="monospace" Text="{Binding EndTimeFullDisplay}" />
-          </StackPanel>
-
-          <StackPanel Spacing="2" IsVisible="{Binding HasAltitudeInfo}">
-            <TextBlock Text="Altitude" FontSize="10" Foreground="#6b7488" />
-            <TextBlock Text="{Binding AltitudeRangeDisplay}" FontSize="12" />
-          </StackPanel>
-
-          <Grid ColumnDefinitions="*,*">
-            <StackPanel Grid.Column="0" Spacing="2">
-              <TextBlock Text="Area" FontSize="10" Foreground="#6b7488" />
-              <TextBlock Text="{Binding AreaDisplay}" FontSize="12" />
+            <StackPanel Spacing="4" IsVisible="{Binding HasOperator}">
+              <TextBlock Text="OPERATOR" Classes="overline" />
+              <TextBlock Text="{Binding Operator}" Classes="body mono" TextWrapping="Wrap" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="2">
-              <TextBlock Text="Zones" FontSize="10" Foreground="#6b7488" />
-              <TextBlock Text="{Binding ZoneCount}" FontSize="12" />
+
+            <StackPanel Spacing="4" IsVisible="{Binding HasDescription}">
+              <TextBlock Text="DESCRIPTION" Classes="overline" />
+              <TextBlock Text="{Binding Description}" Classes="body" TextWrapping="Wrap" />
             </StackPanel>
-          </Grid>
-        </StackPanel>
-      </ScrollViewer>
-     </Border>
+
+            <StackPanel Spacing="6">
+              <TextBlock Text="SCHEDULE (UTC)" Classes="overline" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="4">
+                <TextBlock Text="Start" Classes="secondary" />
+                <TextBlock Grid.Column="1" Text="{Binding StartTimeFullDisplay}" Classes="body mono" HorizontalAlignment="Right" />
+                <TextBlock Grid.Row="1" Text="End" Classes="secondary" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EndTimeFullDisplay}" Classes="body mono" HorizontalAlignment="Right" />
+              </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding HasStatusInfo}">
+              <TextBlock Text="STATUS" Classes="overline" />
+              <WrapPanel>
+                <Border Classes="pill info" Margin="0,0,6,6" IsVisible="{Binding HasState}">
+                  <TextBlock Text="{Binding State}" />
+                </Border>
+                <Border Classes="pill accent" Margin="0,0,6,6" IsVisible="{Binding HasClosureReason}">
+                  <TextBlock Text="{Binding ClosureReason}" />
+                </Border>
+              </WrapPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="4" IsVisible="{Binding HasAltitudeInfo}">
+              <TextBlock Text="ALTITUDE" Classes="overline" />
+              <TextBlock Text="{Binding AltitudeRangeDisplay}" Classes="body" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Text="GEOMETRY" Classes="overline" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Area" Classes="secondary" />
+                <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" Classes="body" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Zones" Classes="secondary" />
+                <TextBlock Grid.Column="1" Text="{Binding ZonesDisplay}" Classes="body" />
+              </Grid>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
     </Border>
 
+    <!-- Empty state -->
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="260"
+                IsVisible="{Binding !HasOps}">
+      <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource LunaAccentTintBrush}" HorizontalAlignment="Center">
+        <controls:LunaIcon Classes="accent large" Data="{StaticResource IconPlane}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <TextBlock Text="No OPS loaded" Classes="section" HorizontalAlignment="Center" Margin="0,6,0,0" />
+      <TextBlock Text="Upload an OPS JSON file to begin." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
+      <Button Classes="primary" Click="UploadButton_Click" HorizontalAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Upload OPS JSON">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <controls:LunaIcon Data="{StaticResource IconUpload}" />
+          <TextBlock Text="Upload OPS JSON" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+
     <!-- Scrollable main content -->
-    <ScrollViewer Padding="0,0,14,0">
-      <StackPanel Spacing="10">
+    <ScrollViewer Padding="0,0,12,0" IsVisible="{Binding HasOps}">
+      <StackPanel Spacing="14">
 
-        <TextBox Watermark="Search OPS by title, ID, operator..." Text="{Binding SearchQuery}" />
+        <TextBox Classes="search" Watermark="Search operations..." Text="{Binding SearchQuery}"
+                 AutomationProperties.Name="Search operations">
+          <TextBox.InnerLeftContent>
+            <controls:LunaIcon Data="{StaticResource IconSearch}" Margin="12,0,0,0" />
+          </TextBox.InnerLeftContent>
+        </TextBox>
 
-        <StackPanel Spacing="6" IsVisible="{Binding HasClosureReasons}">
+        <StackPanel Spacing="8" IsVisible="{Binding HasClosureReasons}">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Grid.Column="0" Text="Closure Reason" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Clear" FontSize="11" Padding="8,3" Background="Transparent"
-                    Command="{Binding ClearClosureReasonsCommand}" />
+            <TextBlock Text="CLOSURE REASON" Classes="overline" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Clear" Classes="ghost small" Command="{Binding ClearClosureReasonsCommand}"
+                    AutomationProperties.Name="Clear closure reason filter" />
           </Grid>
           <ItemsControl ItemsSource="{Binding ClosureReasonChips}">
             <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:ClosureReasonChipViewModel">
-                <ToggleButton Content="{Binding Reason}" IsChecked="{Binding IsSelected}" Margin="0,0,4,4"
-                              Padding="8,2" CornerRadius="12" FontSize="11" />
+                <ToggleButton Classes="chip" Content="{Binding Reason}" IsChecked="{Binding IsSelected}" Margin="0,0,6,6" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </StackPanel>
 
-        <StackPanel Spacing="6" IsVisible="{Binding HasOps}">
-          <TextBlock Text="Timeframe" FontSize="11" Foreground="#9aa4b8" />
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="From" FontSize="11" Foreground="#6b7488" Width="32" VerticalAlignment="Center" />
-            <DatePicker SelectedDate="{Binding TimeframeFrom}" HorizontalAlignment="Stretch" />
+        <StackPanel Spacing="8" IsVisible="{Binding HasOps}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <controls:LunaIcon Classes="small" Data="{StaticResource IconCalendar}" />
+            <TextBlock Text="TIMEFRAME" Classes="overline" VerticalAlignment="Center" />
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <TextBlock Text="To" FontSize="11" Foreground="#6b7488" Width="32" VerticalAlignment="Center" />
-            <DatePicker SelectedDate="{Binding TimeframeTo}" HorizontalAlignment="Stretch" />
-          </StackPanel>
+          <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
+            <TextBlock Text="From" Classes="secondary" VerticalAlignment="Center" />
+            <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeFrom}" AutomationProperties.Name="From date" />
+          </Grid>
+          <Grid ColumnDefinitions="40,*" ColumnSpacing="6">
+            <TextBlock Text="To" Classes="secondary" VerticalAlignment="Center" />
+            <DatePicker Grid.Column="1" SelectedDate="{Binding TimeframeTo}" AutomationProperties.Name="To date" />
+          </Grid>
         </StackPanel>
 
-        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasOps}">
-          <TextBlock Grid.Column="0" Text="OPS" FontSize="11" Foreground="#9aa4b8" VerticalAlignment="Center" />
-          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" FontSize="11" Padding="8,3"
-                  Background="Transparent" Command="{Binding ToggleSelectAllCommand}" />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="OPERATIONS" Classes="overline" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="{Binding SelectAllLabel}" Classes="ghost small" Command="{Binding ToggleSelectAllCommand}" />
         </Grid>
 
-        <TextBlock Text="No OPS match the current filters" Foreground="#9aa4b8" HorizontalAlignment="Center"
-                   Margin="0,20,0,0" IsVisible="{Binding HasNoFilteredOps}" />
-        <TextBlock Text="Upload a JSON file to get started" Foreground="#6b7488" FontSize="11" HorizontalAlignment="Center"
-                   IsVisible="{Binding !HasOps}" />
+        <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,16,0,0" IsVisible="{Binding HasNoFilteredOps}">
+          <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
+          <TextBlock Text="No operations match" Classes="cardtitle" HorizontalAlignment="Center" />
+          <TextBlock Text="Try a different search, closure reason or date range." Classes="secondary" TextAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
 
         <ItemsControl ItemsSource="{Binding FilteredOps}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:OpsRowViewModel">
-              <Border Background="#151a28" BorderBrush="#232a3a" BorderThickness="1" CornerRadius="8"
-                      Padding="12" Margin="0,0,0,8">
-                <StackPanel Spacing="6">
-                  <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" Margin="0,0,4,0" />
-                    <StackPanel Grid.Column="1" Spacing="2" Cursor="Hand" Tag="{Binding}" Tapped="OpRow_Tapped">
-                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="{Binding OperationPlanId}" FontSize="11" Foreground="#6b7488" TextTrimming="CharacterEllipsis" FontFamily="monospace" />
-                    </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{Binding Status}" FontSize="11" Foreground="#9aa4b8"
-                               VerticalAlignment="Top" Margin="4,0" />
-                    <Button Grid.Column="3" Content="✕" FontSize="11" Padding="8,3" Background="Transparent"
-                            Tag="{Binding}" Click="DeleteOpButton_Click" />
-                  </Grid>
-                  <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#9aa4b8"
-                             TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
-                             IsVisible="{Binding HasDescription}" />
-                  <Grid ColumnDefinitions="*,*">
-                    <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}" FontSize="11" Foreground="#9aa4b8" />
-                    <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" FontSize="11" Foreground="#9aa4b8" HorizontalAlignment="Right" />
-                  </Grid>
-                </StackPanel>
+              <Border Classes="card interactive" Classes.selected="{Binding IsSelected}" Padding="12" Margin="0,0,0,8">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                  <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" MinWidth="0"
+                            AutomationProperties.Name="Select operation" />
+                  <StackPanel Grid.Column="1" Spacing="4" Tag="{Binding}" Tapped="OpRow_Tapped">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                      <Ellipse Classes="dot" Fill="{Binding Color}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="cardtitle" />
+                    </Grid>
+                    <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Description}" Classes="secondary" MaxLines="2" TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis" IsVisible="{Binding HasDescription}" />
+                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="14" Margin="0,2,0,0">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <controls:LunaIcon Classes="small" Data="{StaticResource IconClock}" />
+                        <TextBlock Text="{Binding StartTimeDisplay}" Classes="meta" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <controls:LunaIcon Classes="small" Data="{StaticResource IconLayers}" />
+                        <TextBlock Text="{Binding AreaDisplay}" Classes="meta" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="6" HorizontalAlignment="Right">
+                    <Border Classes="pill success" HorizontalAlignment="Right" IsVisible="{Binding IsActiveStatus}"><TextBlock Text="Active" /></Border>
+                    <Border Classes="pill warning" HorizontalAlignment="Right" IsVisible="{Binding IsPendingStatus}"><TextBlock Text="Pending" /></Border>
+                    <Border Classes="pill" HorizontalAlignment="Right" IsVisible="{Binding IsExpiredStatus}"><TextBlock Text="Expired" /></Border>
+                    <Button Classes="icon compact ghost danger" Tag="{Binding}" Click="DeleteOpButton_Click" HorizontalAlignment="Right"
+                            AutomationProperties.Name="Remove operation" ToolTip.Tip="Remove from this session">
+                      <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />
+                    </Button>
+                  </StackPanel>
+                </Grid>
               </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
