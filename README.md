@@ -2,6 +2,8 @@
 
 Portable desktop viewer for UAS flight operation plans (OPS) and areas of responsibility (AoRs), built with Avalonia UI on .NET. The window title and sidebar header read "UAS Tool — UAV Flight Plan Viewer".
 
+This document is technical (architecture, build, deployment). For what the app does and how to use it, see [USER_GUIDE.md](USER_GUIDE.md).
+
 ## Overview
 
 The application loads OPS and AoR data from JSON files, draws the resulting polygons on an interactive map, and lets the user filter, inspect, cross-reference and export that data. It runs entirely on the local machine: there is no server, database or user account. Network access is used only for map tiles and for address geocoding (see [External Services](#external-services)).
