@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using FlightPathPlanner.ViewModels;
 
 namespace FlightPathPlanner.Views;
@@ -33,5 +34,15 @@ public partial class ReportTabView : UserControl
         var export = vm.PrepareSummaryExport();
         if (await FileDialogs.SaveXlsxAsync(this, "Export Geozone Report as XLSX", $"geozone-report-{DateTime.UtcNow:yyyy-MM-dd}.xlsx", () => export.BuildXlsx))
             await vm.SaveLocalCopyAsync(export);
+    }
+
+    private void OpRow_Tapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is Control { Tag: OpsRowViewModel row }) ViewModel?.ActivateOpCommand.Execute(row);
+    }
+
+    private void CloseDetailsButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        ViewModel?.CloseDetailsCommand.Execute(null);
     }
 }

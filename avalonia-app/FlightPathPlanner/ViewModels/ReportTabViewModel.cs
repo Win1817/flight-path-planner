@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using FlightPathPlanner.Models;
 using FlightPathPlanner.Services;
 
@@ -19,6 +20,10 @@ public partial class ReportTabViewModel : ViewModelBase
     private readonly OpsTabViewModel _opsTab;
     private readonly AorTabViewModel _aorTab;
     private List<ReportAorOptionViewModel> _allAorOptions = new();
+
+    /// <summary>Which matched op's details are open, tracked by dataset ordinal (not the OpsRowViewModel instance
+    /// itself) because MatchingOps is rebuilt from scratch on every refresh — mirrors OpsTabViewModel's ActiveOp.</summary>
+    private int? _activeOrdinal;
 
     public ReportTabViewModel(OpsTabViewModel opsTab, AorTabViewModel aorTab, LocalStorageService? storage = null)
     {
@@ -44,6 +49,17 @@ public partial class ReportTabViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial ObservableCollection<OpsRowViewModel> MatchingOps { get; set; } = new();
+
+    [ObservableProperty]
+    public partial OpsRowViewModel? ActiveOp { get; set; }
+
+    partial void OnActiveOpChanged(OpsRowViewModel? value) => _activeOrdinal = value?.Op.Ordinal;
+
+    [RelayCommand]
+    private void ActivateOp(OpsRowViewModel row) => ActiveOp = ReferenceEquals(ActiveOp, row) ? null : row;
+
+    [RelayCommand]
+    private void CloseDetails() => ActiveOp = null;
 
     public bool HasOpsAndAors => _opsTab.HasOps && _aorTab.HasAors;
     public int AorCount => _aorTab.TotalCount;
@@ -105,6 +121,7 @@ public partial class ReportTabViewModel : ViewModelBase
     partial void OnSelectedAorChanged(ReportAorOptionViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedAor));
+        _activeOrdinal = null; // a new AoR means a new match set; don't carry details over from the old one
         RefreshMatches();
     }
 
@@ -120,6 +137,9 @@ public partial class ReportTabViewModel : ViewModelBase
             var matched = ReportService.GetOpsInAor(currentOps, SelectedAor.Aor);
             MatchingOps = new ObservableCollection<OpsRowViewModel>(matched.Select(op => new OpsRowViewModel(op)));
         }
+        // Re-resolve rather than carry the old instance: MatchingOps was just rebuilt from scratch, so any
+        // previously-active row reference is now stale. Closes the panel if the op fell out of the match set.
+        ActiveOp = _activeOrdinal is int ordinal ? MatchingOps.FirstOrDefault(r => r.Op.Ordinal == ordinal) : null;
         OnPropertyChanged(nameof(MatchCount));
         OnPropertyChanged(nameof(HasNoMatches));
     }

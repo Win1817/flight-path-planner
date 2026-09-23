@@ -92,6 +92,101 @@
             </StackPanel>
           </Border>
 
+          <!-- Details (inspector) for whichever matched op was tapped. IsVisible stays on the outer element
+               (tab scope); the DataContext override to the row happens on the inner element only, so the two
+               bindings never fight over their type — same pattern as OpsTabView's inspector. -->
+          <Border IsVisible="{Binding ActiveOp, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Border Classes="card" Padding="0" MaxHeight="270" DataContext="{Binding ActiveOp}">
+              <ScrollViewer x:DataType="vm:OpsRowViewModel" Padding="0,0,10,0">
+                <StackPanel Margin="16,14,6,16" Spacing="12">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel>
+                      <TextBlock Text="OPERATION DETAILS" Classes="overline" />
+                      <TextBlock Text="{Binding Title}" Classes="section" TextWrapping="Wrap" Margin="0,2,0,0" />
+                      <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="icon ghost" VerticalAlignment="Top" Click="CloseDetailsButton_Click"
+                            AutomationProperties.Name="Close details">
+                      <controls:LunaIcon Data="{StaticResource IconX}" />
+                    </Button>
+                  </Grid>
+                  <Border Classes="divider" />
+
+                  <StackPanel Spacing="4" IsVisible="{Binding HasOperator}">
+                    <TextBlock Text="OPERATOR" Classes="overline" />
+                    <TextBlock Text="{Binding Operator}" Classes="body mono" TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="4" IsVisible="{Binding HasDescription}">
+                    <TextBlock Text="DESCRIPTION" Classes="overline" />
+                    <TextBlock Text="{Binding Description}" Classes="body" TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="SCHEDULE (UTC)" Classes="overline" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="4">
+                      <TextBlock Text="Start" Classes="secondary" />
+                      <TextBlock Grid.Column="1" Text="{Binding StartTimeFullDisplay}" Classes="body mono" HorizontalAlignment="Right" />
+                      <TextBlock Grid.Row="1" Text="End" Classes="secondary" />
+                      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EndTimeFullDisplay}" Classes="body mono" HorizontalAlignment="Right" />
+                    </Grid>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6" IsVisible="{Binding HasStatusInfo}">
+                    <TextBlock Text="STATUS" Classes="overline" />
+                    <WrapPanel>
+                      <Border Classes="pill info" Margin="0,0,6,6" IsVisible="{Binding HasState}">
+                        <TextBlock Text="{Binding State}" />
+                      </Border>
+                      <Border Classes="pill accent" Margin="0,0,6,6" IsVisible="{Binding HasClosureReason}">
+                        <TextBlock Text="{Binding ClosureReason}" />
+                      </Border>
+                    </WrapPanel>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6" IsVisible="{Binding HasEd318StatusInfo}">
+                    <TextBlock Text="ED-318 APPROVAL" Classes="overline" />
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasApproval}">
+                      <TextBlock Text="Approval" Classes="secondary" VerticalAlignment="Center" />
+                      <Border Grid.Column="1" Classes="pill success" Classes.danger="{Binding !ApprovalGranted}" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding ApprovalDisplay}" />
+                      </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasTakeoffClearance}">
+                      <TextBlock Text="Take-off clearance" Classes="secondary" VerticalAlignment="Center" />
+                      <Border Grid.Column="1" Classes="pill success" Classes.danger="{Binding !ClearanceGranted}" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding TakeoffClearanceDisplay}" />
+                      </Border>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ConflictsDisplay, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                      <TextBlock Text="Conflicts" Classes="secondary" VerticalAlignment="Center" />
+                      <Border Grid.Column="1" Classes="pill" Classes.danger="{Binding HasUnresolvedConflicts}" HorizontalAlignment="Right">
+                        <TextBlock Text="{Binding ConflictsDisplay}" />
+                      </Border>
+                    </Grid>
+                  </StackPanel>
+
+                  <StackPanel Spacing="4" IsVisible="{Binding HasAltitudeInfo}">
+                    <TextBlock Text="ALTITUDE" Classes="overline" />
+                    <TextBlock Text="{Binding AltitudeRangeDisplay}" Classes="body" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="GEOMETRY" Classes="overline" />
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Area" Classes="secondary" />
+                      <TextBlock Grid.Column="1" Text="{Binding AreaDisplay}" Classes="body" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="Zones" Classes="secondary" />
+                      <TextBlock Grid.Column="1" Text="{Binding ZonesDisplay}" Classes="body" />
+                    </Grid>
+                  </StackPanel>
+                </StackPanel>
+              </ScrollViewer>
+            </Border>
+          </Border>
+
           <StackPanel Spacing="6" HorizontalAlignment="Center" Margin="0,4,0,0" IsVisible="{Binding HasNoMatches}">
             <controls:LunaIcon Classes="large" Data="{StaticResource IconSearch}" HorizontalAlignment="Center" />
             <TextBlock Text="No flight plans intersect this area" Classes="cardtitle" HorizontalAlignment="Center" TextWrapping="Wrap" />
@@ -101,7 +196,7 @@
           <ItemsControl ItemsSource="{Binding MatchingOps}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:OpsRowViewModel">
-                <Border Classes="card" Padding="12" Margin="0,0,0,8">
+                <Border Classes="card interactive" Padding="12" Margin="0,0,0,8" Tag="{Binding}" Tapped="OpRow_Tapped">
                   <StackPanel Spacing="4">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                       <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
