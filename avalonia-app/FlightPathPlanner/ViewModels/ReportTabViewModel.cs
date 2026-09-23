@@ -176,7 +176,10 @@ public partial class ReportTabViewModel : ViewModelBase
             using var workbook = new XLWorkbook();
             var sheet = workbook.Worksheets.Add("Report");
             sheet.Cell(1, 1).InsertTable(_rows.Value);
-            sheet.Columns().AdjustToContents();
+            // AdjustToContents measures every cell's rendered text, which is fine for a handful of rows but turns
+            // into a real cost (tens of seconds, large transient allocations) once exports reach tens of thousands
+            // of rows - a fixed width is a reasonable trade-off at that scale.
+            sheet.Columns().Width = 18;
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);
             return ms.ToArray();

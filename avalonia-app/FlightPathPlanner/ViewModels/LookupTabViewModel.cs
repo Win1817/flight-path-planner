@@ -264,7 +264,10 @@ public partial class LookupTabViewModel : ViewModelBase
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Flight Lookup");
         sheet.Cell(1, 1).InsertTable(rows);
-        sheet.Columns().AdjustToContents();
+        // AdjustToContents measures every cell's rendered text, which is fine for a handful of rows but turns
+        // into a real cost (tens of seconds, large transient allocations) once exports reach tens of thousands
+        // of rows - a fixed width is a reasonable trade-off at that scale.
+        sheet.Columns().Width = 18;
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
         return ms.ToArray();
