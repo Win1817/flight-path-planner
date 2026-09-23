@@ -1,5 +1,11 @@
 namespace FlightPathPlanner.Models;
 
+/// <summary>Which wire schema an OPS record was read from. The two aren't the same vocabulary — ED-269 plans carry a
+/// single free-text <see cref="Ops.State"/>/<see cref="Ops.ClosureReason"/>, while ED-318 plans separately track
+/// approval, take-off clearance and airspace conflicts (see <see cref="Ops.Approval"/>, <see cref="Ops.TakeoffClearance"/>,
+/// <see cref="Ops.Conflicts"/>). Kept on the record so the UI never conflates the two.</summary>
+public enum OpsSchema { Ed269, Ed318 }
+
 public sealed class Altitude
 {
     public double AltitudeValue { get; init; }
@@ -12,6 +18,24 @@ public sealed class Contact
     public string? Name { get; init; }
     public string? Phone { get; init; }
     public string? Email { get; init; }
+}
+
+/// <summary>The most recent local approval or take-off clearance result for an ED-318 plan (from
+/// <c>localApprovalResults</c> / <c>localTakeoffClearanceResults</c> — each is a version history; only the latest,
+/// by <c>updateTime</c>, is kept).</summary>
+public sealed class ApprovalStatus
+{
+    public string? State { get; init; } // e.g. GRANTED, DENIED, PENDING
+    public string? EvaluationType { get; init; } // e.g. AUTOMATIC, MANUAL
+}
+
+/// <summary>An airspace/authority conflict reported against an ED-318 plan (from <c>conflicts</c>).</summary>
+public sealed class OpsConflict
+{
+    public string? Message { get; init; }
+    public string? ConflictType { get; init; }
+    public bool Resolved { get; init; }
+    public bool Rejecting { get; init; }
 }
 
 public sealed class OperationVolume
@@ -43,6 +67,14 @@ public class Ops
     public Contact? Contact { get; init; }
     public string? ModeOfOperation { get; init; }
     public double? SwarmSize { get; init; }
+
+    public OpsSchema Schema { get; init; } = OpsSchema.Ed269;
+
+    // ED-318-only fields. Null/empty on an ED-269 plan.
+    public string? ProviderId { get; init; }
+    public ApprovalStatus? Approval { get; init; }
+    public ApprovalStatus? TakeoffClearance { get; init; }
+    public List<OpsConflict> Conflicts { get; init; } = new();
 }
 
 public sealed class ParsedOps : Ops

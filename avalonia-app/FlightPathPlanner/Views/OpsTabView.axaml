@@ -137,6 +137,30 @@
               </WrapPanel>
             </StackPanel>
 
+            <!-- ED-318 only: approval/clearance/conflicts have no ED-269 equivalent, so this section only
+                 ever appears on an ED-318 plan, kept distinct from the ED-269 State/ClosureReason pair above. -->
+            <StackPanel Spacing="6" IsVisible="{Binding HasEd318StatusInfo}">
+              <TextBlock Text="ED-318 APPROVAL" Classes="overline" />
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasApproval}">
+                <TextBlock Text="Approval" Classes="secondary" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Classes="pill success" Classes.danger="{Binding !ApprovalGranted}" HorizontalAlignment="Right">
+                  <TextBlock Text="{Binding ApprovalDisplay}" />
+                </Border>
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasTakeoffClearance}">
+                <TextBlock Text="Take-off clearance" Classes="secondary" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Classes="pill success" Classes.danger="{Binding !ClearanceGranted}" HorizontalAlignment="Right">
+                  <TextBlock Text="{Binding TakeoffClearanceDisplay}" />
+                </Border>
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ConflictsDisplay, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="Conflicts" Classes="secondary" VerticalAlignment="Center" />
+                <Border Grid.Column="1" Classes="pill" Classes.danger="{Binding HasUnresolvedConflicts}" HorizontalAlignment="Right">
+                  <TextBlock Text="{Binding ConflictsDisplay}" />
+                </Border>
+              </Grid>
+            </StackPanel>
+
             <StackPanel Spacing="4" IsVisible="{Binding HasAltitudeInfo}">
               <TextBlock Text="ALTITUDE" Classes="overline" />
               <TextBlock Text="{Binding AltitudeRangeDisplay}" Classes="body" />
@@ -246,9 +270,13 @@
                 <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Top" MinWidth="0"
                           AutomationProperties.Name="Select operation" />
                 <StackPanel Grid.Column="1" Spacing="4" Tag="{Binding}" Tapped="OpRow_Tapped">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                     <Ellipse Classes="dot" Fill="{Binding Color}" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="1" Text="{Binding Title}" Classes="cardtitle" />
+                    <Border Grid.Column="2" Classes="pill" VerticalAlignment="Center" IsVisible="{Binding IsEd318}"
+                            ToolTip.Tip="Parsed from the ED-318 schema">
+                      <TextBlock Text="{Binding SchemaLabel}" />
+                    </Border>
                   </Grid>
                   <TextBlock Text="{Binding OperationPlanId}" Classes="meta mono" TextTrimming="CharacterEllipsis" />
                   <TextBlock Text="{Binding Description}" Classes="secondary" MaxLines="2" TextWrapping="Wrap"
@@ -268,6 +296,8 @@
                   <Border Classes="pill success" HorizontalAlignment="Right" IsVisible="{Binding IsActiveStatus}"><TextBlock Text="Active" /></Border>
                   <Border Classes="pill warning" HorizontalAlignment="Right" IsVisible="{Binding IsPendingStatus}"><TextBlock Text="Pending" /></Border>
                   <Border Classes="pill" HorizontalAlignment="Right" IsVisible="{Binding IsExpiredStatus}"><TextBlock Text="Expired" /></Border>
+                  <Border Classes="pill danger" HorizontalAlignment="Right" IsVisible="{Binding HasUnresolvedConflicts}"
+                          ToolTip.Tip="{Binding ConflictsDisplay}"><TextBlock Text="Conflict" /></Border>
                   <Button Classes="icon compact ghost danger" Tag="{Binding}" Click="DeleteOpButton_Click" HorizontalAlignment="Right"
                           AutomationProperties.Name="Remove operation" ToolTip.Tip="Remove from this session">
                     <controls:LunaIcon Classes="small" Data="{StaticResource IconX}" />

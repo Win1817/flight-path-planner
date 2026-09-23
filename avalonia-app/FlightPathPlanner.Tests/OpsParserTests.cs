@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FlightPathPlanner.Models;
 using FlightPathPlanner.Services;
 
 namespace FlightPathPlanner.Tests;
@@ -208,6 +209,55 @@ public class OpsParserTests
 
         Assert.Equal(2, ops.Count);
         Assert.All(ops, op => Assert.Equal("d3396010-feaf-11f0-9c3a-e98a2d0c4310", op.OperationPlanId));
+    }
+
+    [Fact]
+    public void ParseOps_Ed318_TagsSchemaAndCapturesApprovalClearanceConflicts()
+    {
+        // localApprovalResults/localTakeoffClearanceResults are version histories: the entry with the latest
+        // updateTime wins, not the first or last array element. Deliberately out of order here to prove that.
+        const string json = """
+        {
+          "providerId": "flyk",
+          "operationPlan": { "operationPlanId": "op-1", "operationVolumes": [] },
+          "localApprovalResults": [
+            {"updateTime": "2026-01-31T14:19:17.383Z", "partialResult": {"state": "GRANTED", "evaluationType": "AUTOMATIC"}},
+            {"updateTime": "2026-01-31T10:00:00.000Z", "partialResult": {"state": "PENDING", "evaluationType": "AUTOMATIC"}}
+          ],
+          "localTakeoffClearanceResults": [
+            {"updateTime": "2026-01-31T14:23:09.480Z", "partialResult": {"state": "DENIED", "evaluationType": "AUTOMATIC"}},
+            {"updateTime": "2026-01-31T14:23:09.515Z", "partialResult": {"state": "GRANTED", "evaluationType": "AUTOMATIC"}}
+          ],
+          "conflicts": [
+            {"message": "Resolved conflict", "conflictType": "TEXTUAL_RESTRICTION", "resolved": true, "rejecting": false},
+            {"message": "Unresolved conflict", "conflictType": "AUTHORITY_REQUIREMENTS", "resolved": false, "rejecting": false}
+          ]
+        }
+        """;
+
+        var data = JsonDocument.Parse(json).RootElement;
+        var op = OpsParser.ParseOps(data)[0];
+
+        Assert.Equal(OpsSchema.Ed318, op.Schema);
+        Assert.Equal("flyk", op.ProviderId);
+        Assert.Equal("GRANTED", op.Approval?.State); // the later of the two approval entries
+        Assert.Equal("GRANTED", op.TakeoffClearance?.State); // the later of the two clearance entries
+        Assert.Equal(2, op.Conflicts.Count);
+        Assert.Single(op.Conflicts, c => !c.Resolved);
+        Assert.Contains(op.Conflicts, c => c is { Resolved: false, Message: "Unresolved conflict" });
+    }
+
+    [Fact]
+    public void ParseOps_Ed269_LeavesEd318OnlyFieldsEmpty()
+    {
+        var data = JsonDocument.Parse(RealOpsSampleJson).RootElement;
+        var op = OpsParser.ParseOps(data)[0];
+
+        Assert.Equal(OpsSchema.Ed269, op.Schema);
+        Assert.Null(op.ProviderId);
+        Assert.Null(op.Approval);
+        Assert.Null(op.TakeoffClearance);
+        Assert.Empty(op.Conflicts);
     }
 
     [Theory]

@@ -67,15 +67,48 @@ public static partial class OpsParser
         return JsonHelpers.GetObject(data, "operationPlan") is { } inner && IsSingleOpsRecord(inner);
     }
 
-    /// <summary>ED-318 nests every plan field one level deeper, under "operationPlan" (alongside provider/approval
-    /// metadata this app doesn't use); ED-269 has them at the top level. Unwrapping once here means every field rule
-    /// below works for both schemas without duplicating them.</summary>
-    private static JsonElement UnwrapOperationPlan(JsonElement raw) =>
-        JsonHelpers.GetObject(raw, "operationPlan") ?? raw;
+    /// <summary>Latest entry (by updateTime) of an ED-318 version-history array such as localApprovalResults or
+    /// localTakeoffClearanceResults, reduced to just the state that matters for display.</summary>
+    private static ApprovalStatus? ParseLatestPartialResult(JsonElement raw, string arrayName)
+    {
+        var results = JsonHelpers.GetArray(raw, arrayName);
+        if (!results.HasValue) return null;
+
+        JsonElement? latest = null;
+        var latestTime = DateTimeOffset.MinValue;
+        foreach (var entry in results.Value.EnumerateArray())
+        {
+            var when = DateTimeOffset.TryParse(JsonHelpers.GetString(entry, "updateTime"), CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var t) ? t : DateTimeOffset.MinValue;
+            if (latest == null || when >= latestTime) { latest = entry; latestTime = when; }
+        }
+        if (latest is not { } chosen) return null;
+
+        var partialResult = JsonHelpers.GetObject(chosen, "partialResult");
+        if (!partialResult.HasValue) return null;
+        var state = JsonHelpers.GetString(partialResult.Value, "state");
+        if (state == null) return null;
+        return new ApprovalStatus { State = state, EvaluationType = JsonHelpers.GetString(partialResult.Value, "evaluationType") };
+    }
+
+    private static List<OpsConflict> ParseConflicts(JsonElement raw)
+    {
+        var conflicts = JsonHelpers.GetArray(raw, "conflicts");
+        if (!conflicts.HasValue) return new List<OpsConflict>();
+        return conflicts.Value.EnumerateArray().Select(c => new OpsConflict
+        {
+            Message = JsonHelpers.GetString(c, "message"),
+            ConflictType = JsonHelpers.GetString(c, "conflictType"),
+            Resolved = JsonHelpers.GetBool(c, "resolved") ?? false,
+            Rejecting = JsonHelpers.GetBool(c, "rejecting") ?? false,
+        }).ToList();
+    }
 
     public static Ops NormalizeOps(JsonElement raw)
     {
-        var data = UnwrapOperationPlan(raw);
+        var wrapper = JsonHelpers.GetObject(raw, "operationPlan");
+        var schema = wrapper.HasValue ? OpsSchema.Ed318 : OpsSchema.Ed269;
+        var data = wrapper ?? raw;
 
         var operationPlanId = JsonHelpers.GetString(data, "operationPlanId", "operation_plan_id") ?? "";
         var flightPlanId = JsonHelpers.GetString(data, "flightPlanId", "flight_plan_id");
@@ -128,6 +161,11 @@ public static partial class OpsParser
             Contact = contact,
             ModeOfOperation = JsonHelpers.GetString(data, "modeOfOperation"),
             SwarmSize = JsonHelpers.GetNumber(data, "swarmSize"),
+            Schema = schema,
+            ProviderId = JsonHelpers.GetString(raw, "providerId"),
+            Approval = ParseLatestPartialResult(raw, "localApprovalResults"),
+            TakeoffClearance = ParseLatestPartialResult(raw, "localTakeoffClearanceResults"),
+            Conflicts = ParseConflicts(raw),
         };
     }
 
@@ -217,6 +255,11 @@ public static partial class OpsParser
             Contact = op.Contact,
             ModeOfOperation = op.ModeOfOperation,
             SwarmSize = op.SwarmSize,
+            Schema = op.Schema,
+            ProviderId = op.ProviderId,
+            Approval = op.Approval,
+            TakeoffClearance = op.TakeoffClearance,
+            Conflicts = op.Conflicts,
             ComputedArea = totalArea,
             StartTime = start,
             EndTime = end,
@@ -224,7 +267,7 @@ public static partial class OpsParser
             Color = ZoneColors[index % ZoneColors.Length],
             Ordinal = index,
             Bounds = bounds,
-            SearchText = string.Join('\u0001', op.Title ?? "", op.OperationPlanId, op.Operator ?? "", op.Description ?? "").ToLowerInvariant(),
+            SearchText = string.Join('\u0001', op.Title ?? "", op.OperationPlanId, op.Operator ?? "", op.Description ?? "", op.ProviderId ?? "").ToLowerInvariant(),
         };
     }
 
