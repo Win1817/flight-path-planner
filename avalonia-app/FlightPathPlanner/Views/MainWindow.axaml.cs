@@ -95,7 +95,7 @@ public partial class MainWindow : Window
         Map.UpdateHighlights(vm.BuildHighlightIds());
 
         if (payload.ViewportMode)
-            AppLog.Diagnostic($"map v{payload.Version}: {payload.Shown:N0} drawn / {payload.InView:N0} in view / {payload.Total:N0} total, {payload.Chunks.Count} chunk(s), built in {payload.BuildTime.TotalMilliseconds:0} ms");
+            AppLog.Diagnostic($"map v{payload.Version}: {payload.Shown:N0} drawn / {payload.InView:N0} in view / {payload.Total:N0} total, {payload.Chunks.Count} chunk(s) / {payload.Chunks.Sum(c => (long)c.Length) / 1048576.0:0.0} MB, built in {payload.BuildTime.TotalMilliseconds:0} ms");
     }
 
     private void OnMapDataInvalidated()

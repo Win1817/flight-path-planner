@@ -35,6 +35,15 @@ public static class MapPayloadBuilder
     /// <summary>Most features sent for one viewport.</summary>
     public const int MaxViewportFeatures = 2500;
 
+    /// <summary>Most vertices sent for one viewport, after simplification. Feature count alone doesn't bound a payload: a
+    /// 147 MB file of 7,000 zones x 1,000 vertices produced a 52 MB first render (2.5M vertices) and stalled the map. 300k
+    /// vertices is roughly 7 MB of GeoJSON, which the page parses and tessellates in well under a second.</summary>
+    public const int MaxViewportVertices = 300_000;
+
+    /// <summary>The visible span is treated as about this many pixels across; vertices closer together than one such pixel are
+    /// invisible at that zoom and are dropped.</summary>
+    private const double AssumedViewportPixels = 1200;
+
     private const double ViewportPadding = 0.15; // query a little beyond the screen so small pans don't reveal empty edges
 
     public static bool UsesViewport(int includedCount) => includedCount > ViewportThreshold;
@@ -66,9 +75,10 @@ public static class MapPayloadBuilder
         if (view == null) return new MapPayload(version, true, fit, ToArray(fitBounds), 0, included, highlightIds.Count > 0, Array.Empty<string>(), timer.Elapsed, 0, NeedsViewport: true);
 
         var (indexes, candidates) = dataset.Index.Query(Expand(view, ViewportPadding), mask, MaxViewportFeatures);
-        var visible = indexes.Select(i => dataset.Items[i]);
-        var visibleChunks = MapGeoJson.BuildChunks(Array.Empty<ParsedOps>(), visible, null, highlightIds, ct: ct);
-        return new MapPayload(version, true, fit, ToArray(fitBounds), indexes.Count, included, highlightIds.Count > 0, visibleChunks, timer.Elapsed, candidates);
+        var detail = DetailFor(view);
+        var visible = indexes.Select(i => dataset.Items[i]).OrderByDescending(a => a.ComputedArea); // biggest first: a vertex budget drops the least significant
+        var visibleChunks = MapGeoJson.BuildChunks(Array.Empty<ParsedOps>(), visible, null, highlightIds, ct: ct, detail: detail);
+        return new MapPayload(version, true, fit, ToArray(fitBounds), detail.ItemsWritten, included, highlightIds.Count > 0, visibleChunks, timer.Elapsed, candidates);
     }
 
     public static MapPayload ForOps(OpsDataset dataset, bool[]? mask, int included, IReadOnlySet<string> highlightIds,
@@ -88,10 +98,18 @@ public static class MapPayloadBuilder
         if (view == null) return new MapPayload(version, true, fit, ToArray(fitBounds), 0, included, highlightIds.Count > 0, Array.Empty<string>(), timer.Elapsed, 0, NeedsViewport: true);
 
         var (indexes, candidates) = dataset.Index.Query(Expand(view, ViewportPadding), mask, MaxViewportFeatures);
-        var visible = indexes.Select(i => dataset.Items[i]);
-        var visibleChunks = MapGeoJson.BuildChunks(visible, Array.Empty<ParsedAor>(), null, highlightIds, ct: ct);
-        return new MapPayload(version, true, fit, ToArray(fitBounds), indexes.Count, included, highlightIds.Count > 0, visibleChunks, timer.Elapsed, candidates);
+        var detail = DetailFor(view);
+        var visible = indexes.Select(i => dataset.Items[i]).OrderByDescending(o => o.ComputedArea); // biggest first: a vertex budget drops the least significant
+        var visibleChunks = MapGeoJson.BuildChunks(visible, Array.Empty<ParsedAor>(), null, highlightIds, ct: ct, detail: detail);
+        return new MapPayload(version, true, fit, ToArray(fitBounds), detail.ItemsWritten, included, highlightIds.Count > 0, visibleChunks, timer.Elapsed, candidates);
     }
+
+    /// <summary>Simplification tolerance is one assumed screen pixel of the visible span, so zooming in restores detail automatically.</summary>
+    internal static MapDetail DetailFor(Envelope view) => new()
+    {
+        Tolerance = Math.Max(view.Width, view.Height) / AssumedViewportPixels,
+        VertexBudget = MaxViewportVertices,
+    };
 
     /// <summary>Report / lookup: a handful of shapes, always sent whole.</summary>
     public static MapPayload ForSmallSet(IReadOnlyList<ParsedOps> ops, IReadOnlyList<ParsedAor> aors, (double lon, double lat, double radiusKm)? radius,
