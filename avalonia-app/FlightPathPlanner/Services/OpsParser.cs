@@ -40,8 +40,7 @@ public static partial class OpsParser
         }
         else if (data.ValueKind == JsonValueKind.Object)
         {
-            if (data.TryGetProperty("operation_plan_id", out _) || data.TryGetProperty("operationPlanId", out _) ||
-                data.TryGetProperty("operation_volumes", out _) || data.TryGetProperty("operationVolumes", out _))
+            if (IsSingleOpsRecord(data))
             {
                 rawOps.Add(data);
             }
@@ -56,34 +55,48 @@ public static partial class OpsParser
         return rawOps.Select(NormalizeOps).ToList();
     }
 
-    /// <summary>True for a single operation-plan object (as opposed to a wrapper holding an array of them).</summary>
-    public static bool IsSingleOpsRecord(JsonElement data) =>
-        data.ValueKind == JsonValueKind.Object &&
-        (data.TryGetProperty("operation_plan_id", out _) || data.TryGetProperty("operationPlanId", out _) ||
-         data.TryGetProperty("operation_volumes", out _) || data.TryGetProperty("operationVolumes", out _));
+    /// <summary>True for a single operation-plan object — either the ED-269 shape (plan fields at the top level) or the
+    /// ED-318 shape (plan fields nested one level deeper, under "operationPlan") — as opposed to a wrapper holding an
+    /// array of them.</summary>
+    public static bool IsSingleOpsRecord(JsonElement data)
+    {
+        if (data.ValueKind != JsonValueKind.Object) return false;
+        if (data.TryGetProperty("operation_plan_id", out _) || data.TryGetProperty("operationPlanId", out _) ||
+            data.TryGetProperty("operation_volumes", out _) || data.TryGetProperty("operationVolumes", out _))
+            return true;
+        return JsonHelpers.GetObject(data, "operationPlan") is { } inner && IsSingleOpsRecord(inner);
+    }
+
+    /// <summary>ED-318 nests every plan field one level deeper, under "operationPlan" (alongside provider/approval
+    /// metadata this app doesn't use); ED-269 has them at the top level. Unwrapping once here means every field rule
+    /// below works for both schemas without duplicating them.</summary>
+    private static JsonElement UnwrapOperationPlan(JsonElement raw) =>
+        JsonHelpers.GetObject(raw, "operationPlan") ?? raw;
 
     public static Ops NormalizeOps(JsonElement raw)
     {
-        var operationPlanId = JsonHelpers.GetString(raw, "operationPlanId", "operation_plan_id") ?? "";
-        var flightPlanId = JsonHelpers.GetString(raw, "flightPlanId", "flight_plan_id");
+        var data = UnwrapOperationPlan(raw);
 
-        var publicInfo = JsonHelpers.GetObject(raw, "publicInfo");
-        var title = JsonHelpers.GetString(raw, "title")
+        var operationPlanId = JsonHelpers.GetString(data, "operationPlanId", "operation_plan_id") ?? "";
+        var flightPlanId = JsonHelpers.GetString(data, "flightPlanId", "flight_plan_id");
+
+        var publicInfo = JsonHelpers.GetObject(data, "publicInfo");
+        var title = JsonHelpers.GetString(data, "title")
             ?? (publicInfo.HasValue ? JsonHelpers.GetString(publicInfo.Value, "title") : null)
             ?? "";
 
-        var flightDetails = JsonHelpers.GetObject(raw, "flightDetails");
-        var description = JsonHelpers.GetString(raw, "description")
+        var flightDetails = JsonHelpers.GetObject(data, "flightDetails");
+        var description = JsonHelpers.GetString(data, "description")
             ?? (publicInfo.HasValue ? JsonHelpers.GetString(publicInfo.Value, "description") : null)
             ?? (flightDetails.HasValue ? JsonHelpers.GetString(flightDetails.Value, "flightComment") : null)
             ?? "";
 
-        var rawVolumes = JsonHelpers.GetArray(raw, "operationVolumes", "operation_volumes");
+        var rawVolumes = JsonHelpers.GetArray(data, "operationVolumes", "operation_volumes");
         var volumes = rawVolumes.HasValue
             ? rawVolumes.Value.EnumerateArray().Select(NormalizeVolume).ToList()
             : new List<OperationVolume>();
 
-        var rawContact = JsonHelpers.GetObject(raw, "contactDetails", "contact");
+        var rawContact = JsonHelpers.GetObject(data, "contactDetails", "contact");
         Contact? contact = null;
         if (rawContact.HasValue)
         {
@@ -104,17 +117,17 @@ public static partial class OpsParser
         {
             OperationPlanId = operationPlanId,
             FlightPlanId = flightPlanId,
-            Operator = JsonHelpers.GetString(raw, "operator"),
+            Operator = JsonHelpers.GetString(data, "operator"),
             Title = title,
             Description = description,
-            State = JsonHelpers.GetString(raw, "state"),
-            ClosureReason = JsonHelpers.GetString(raw, "closureReason"),
-            SubmitTime = EnsureUtc(JsonHelpers.GetString(raw, "submitTime", "submit_time")),
-            UpdateTime = EnsureUtc(JsonHelpers.GetString(raw, "updateTime", "update_time")),
+            State = JsonHelpers.GetString(data, "state"),
+            ClosureReason = JsonHelpers.GetString(data, "closureReason"),
+            SubmitTime = EnsureUtc(JsonHelpers.GetString(data, "submitTime", "submit_time")),
+            UpdateTime = EnsureUtc(JsonHelpers.GetString(data, "updateTime", "update_time")),
             OperationVolumes = volumes,
             Contact = contact,
-            ModeOfOperation = JsonHelpers.GetString(raw, "modeOfOperation"),
-            SwarmSize = JsonHelpers.GetNumber(raw, "swarmSize"),
+            ModeOfOperation = JsonHelpers.GetString(data, "modeOfOperation"),
+            SwarmSize = JsonHelpers.GetNumber(data, "swarmSize"),
         };
     }
 

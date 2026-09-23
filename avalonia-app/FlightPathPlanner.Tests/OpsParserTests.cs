@@ -116,6 +116,100 @@ public class OpsParserTests
         Assert.Throws<InvalidDataException>(() => OpsParser.ParseOps(data));
     }
 
+    // Real-world ED-318 sample: plan fields nested under "operationPlan", alongside provider and
+    // approval-result metadata this app doesn't use. Same volume shape as ED-269, so only the
+    // plan-level unwrap is exercised here.
+    private const string Ed318SampleJson = """
+    {
+      "providerId": "flyk",
+      "usspProviderId": "on",
+      "operationPlan": {
+        "operationPlanId": "d3396010-feaf-11f0-9c3a-e98a2d0c4310",
+        "version": "5cc80339-5542-448c-8c6e-f43cafe4271d",
+        "state": "CLOSED",
+        "operator": "LTUxkpvr9r4n7mzj",
+        "submitTime": "2026-01-31T14:19:17.132Z",
+        "updateTime": "2026-01-31T14:38:37.483Z",
+        "modeOfOperation": "REMOTELY_PILOTED_BVLOS",
+        "swarmSize": 1,
+        "closureReason": "NOMINAL",
+        "operationVolumes": [
+          {
+            "alias": "",
+            "timeBegin": "2026-01-31T14:30:00.000Z",
+            "timeEnd": "2026-01-31T14:59:00.000Z",
+            "actualTimeEnd": "2026-01-31T14:38:37.483Z",
+            "isBVLOS": true,
+            "ordinal": 0,
+            "operationGeometry": {
+              "minAltitude": {"altitudeValue": 0.0, "altitudeType": "ABOVE_GND", "unitsOfMeasure": "FT"},
+              "maxAltitude": {"altitudeValue": 393.7008, "altitudeType": "ABOVE_GND", "unitsOfMeasure": "FT"},
+              "geom": {
+                "type": "Polygon",
+                "coordinates": [[[25.295450294958247,54.68697220787487],[25.29541443131262,54.68718274686007],[25.293583333333334,54.68805140665869],[25.29171637170842,54.68697220787487],[25.293583333333334,54.685893037785746],[25.295450294958247,54.68697220787487]]]
+              }
+            }
+          }
+        ],
+        "contactDetails": {"firstName": "KAROLIS", "lastName": "KUDABA", "emails": ["kavameistris@gmail.com"], "phones": ["+37067488995"]},
+        "publicInfo": {"title": "Apžvalginis", "description": ""}
+      },
+      "localApprovalResults": [{"partialResult": {"state": "GRANTED", "evaluationType": "AUTOMATIC"}}],
+      "conflicts": []
+    }
+    """;
+
+    [Fact]
+    public void IsSingleOpsRecord_RecognizesEd318Wrapper()
+    {
+        var data = JsonDocument.Parse(Ed318SampleJson).RootElement;
+
+        Assert.True(OpsParser.IsSingleOpsRecord(data));
+    }
+
+    [Fact]
+    public void ParseOps_Ed318Wrapper_UnwrapsOperationPlan()
+    {
+        var data = JsonDocument.Parse(Ed318SampleJson).RootElement;
+
+        var ops = OpsParser.ParseOps(data);
+
+        Assert.Single(ops);
+        var op = ops[0];
+        Assert.Equal("d3396010-feaf-11f0-9c3a-e98a2d0c4310", op.OperationPlanId);
+        Assert.Equal("Apžvalginis", op.Title); // pulled from operationPlan.publicInfo.title
+        Assert.Equal("CLOSED", op.State);
+        Assert.Equal("NOMINAL", op.ClosureReason);
+        Assert.Equal("LTUxkpvr9r4n7mzj", op.Operator);
+        Assert.Equal("REMOTELY_PILOTED_BVLOS", op.ModeOfOperation);
+        Assert.Equal(1, op.SwarmSize);
+        Assert.Equal("KAROLIS KUDABA", op.Contact?.Name);
+        Assert.Equal("kavameistris@gmail.com", op.Contact?.Email);
+        Assert.Single(op.OperationVolumes);
+
+        var volume = op.OperationVolumes[0];
+        Assert.True(volume.BeyondVisualLineOfSight);
+        Assert.Equal("2026-01-31T14:30:00.000Z", volume.EffectiveTimeBegin);
+        Assert.Equal(393.7008, volume.MaxAltitude?.AltitudeValue);
+        Assert.Equal("ABOVE_GND", volume.MaxAltitude?.VerticalReference);
+        Assert.NotNull(volume.OperationGeography); // pulled from operationGeometry.geom, same as ED-269
+
+        var parsed = OpsParser.ProcessOps(op, 0);
+        Assert.Equal(1, parsed.ZoneCount);
+        Assert.True(parsed.ComputedArea > 0);
+    }
+
+    [Fact]
+    public void ParseOps_ArrayOfEd318Wrappers_NormalizesEach()
+    {
+        var data = JsonDocument.Parse($"[{Ed318SampleJson}, {Ed318SampleJson}]").RootElement;
+
+        var ops = OpsParser.ParseOps(data);
+
+        Assert.Equal(2, ops.Count);
+        Assert.All(ops, op => Assert.Equal("d3396010-feaf-11f0-9c3a-e98a2d0c4310", op.OperationPlanId));
+    }
+
     [Theory]
     [InlineData(5_000, "5000 m²")]
     [InlineData(15_000, "1.50 ha")]
